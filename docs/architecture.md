@@ -1,12 +1,12 @@
-# TrAIning — proposition d'architecture (à valider avant la phase 1)
+# TrAIning — architecture
 
-Ce document couvre les trois points demandés avant de coder :
+Proposition validée le 27/09/2026 (voir [§5](#5-décisions-validées)). Ce document couvre :
 
 1. [Architecture technique et choix structurants](#1-architecture-technique)
 2. [Arborescence du projet](#2-arborescence-du-projet)
 3. [Schéma de base de données](#3-schéma-de-base-de-données)
 4. [Liste finale des outils MCP](#4-serveur-mcp--liste-finale-des-outils)
-5. [Points à valider](#5-points-à-valider)
+5. [Décisions validées](#5-décisions-validées)
 
 ---
 
@@ -36,7 +36,7 @@ Ce document couvre les trois points demandés avant de coder :
 | Couche d'accès aux données | Package TypeScript `@training/core` écrit contre une interface `Db` minimale (`select`, `execute`, `transaction`). Toute la logique métier (requêtes, calculs nutritionnels, 1RM estimé, import/export JSON, seed, recherche floue) est dans ce package. | Exigence « pas de logique dupliquée » : l'app et le serveur MCP appellent exactement les mêmes fonctions. |
 | Driver côté app | Commandes Rust maison sur **une seule connexion `rusqlite`** (feature `bundled`, FTS5 inclus), sérialisées par un mutex côté TS. Transactions en `BEGIN IMMEDIATE`. | `tauri-plugin-sql` utilise un pool sqlx : les transactions interactives peuvent s'exécuter sur des connexions différentes. Une connexion unique est plus sûre et on maîtrise les PRAGMA. Le Rust reste minimal (~200 lignes). |
 | Driver côté MCP | `node:sqlite` (intégré à Node ≥ 22.5, SQLite 3.51, FTS5 + tokenizer trigram vérifiés). | Pas d'addon natif → le serveur se compile en **un seul `.exe`** via Node SEA. |
-| Migrations | Fichiers SQL numérotés dans `core/src/db/migrations/`, appliqués par un migrateur TS commun (table `schema_migration`), à l'ouverture, en transaction. L'app et le serveur MCP vérifient la version ; le MCP refuse de démarrer si la base est plus récente que lui. | Une seule source de vérité du schéma. |
+| Migrations | Scripts SQL numérotés (modules TS exportant le SQL) dans `core/src/db/migrations/`, appliqués par un migrateur TS commun (table `schema_migration`), à l'ouverture, en transaction. L'app et le serveur MCP vérifient la version ; le MCP refuse de démarrer si la base est plus récente que lui. | Une seule source de vérité du schéma. |
 | PRAGMA (chaque connexion) | `journal_mode=WAL`, `synchronous=FULL`, `foreign_keys=ON`, `busy_timeout=5000`. | WAL = lecture/écriture concurrente app + MCP. `FULL` = aucune transaction validée perdue même en cas de coupure (coût négligeable ici). |
 | Détection des écritures MCP | Un thread Rust interroge `PRAGMA data_version` toutes les ~700 ms ; la valeur ne change que si **une autre connexion** a validé une écriture → émission d'un événement Tauri → invalidation du cache TanStack Query. | Fiable, quasi gratuit, ne réagit pas aux écritures de l'app elle-même. |
 | Identifiants | `TEXT` UUID v7 (triables chronologiquement), générés en TS. | Import/export JSON et fusion sans collision. |
@@ -44,7 +44,7 @@ Ce document couvre les trois points demandés avant de coder :
 | Tables | `STRICT` (typage vérifié par SQLite). | |
 | Écriture immédiate | Chaque modification est persistée tout de suite (cases, valeurs de série) ; champs texte en autosave (debounce 300 ms + flush à la perte de focus / fermeture). | Aucune perte en cas de crash. |
 | Validation | Schémas **Zod** dans `core` réutilisés : formulaires, import JSON, et schémas d'entrée des outils MCP (le SDK MCP accepte Zod). | Schémas stricts sans duplication. |
-| UI | React 19 + Vite, TanStack Router + Query, dnd-kit (drag & drop), Recharts (graphiques), palette de commandes `Ctrl+K`, raccourcis clavier, thème clair/sombre via variables CSS. Textes en français centralisés dans `i18n/fr.ts`. | |
+| UI | React 19 + Vite, TanStack Query, routeur minimal par hash, dnd-kit (glisser-déposer, souris et clavier), graphiques à partir de la phase 2, raccourcis clavier (`?` affiche l'aide), thème clair/sombre via variables CSS. | |
 | Export image | Rendu **Canvas 2D** dédié (pas de capture de fenêtre) : mesure exacte du texte → pagination fiable, 1170 px de large, ratio 9:19,5. Presse-papiers via `tauri-plugin-clipboard-manager`, écriture fichier via commande Rust. | Plus déterministe que HTML→PNG pour la pagination. |
 | Médias | Fichiers copiés dans `<données>/media/…`, la base ne stocke que le chemin relatif. | Base légère, sauvegardes rapides. |
 | Emplacements (Windows) | Base : `%APPDATA%\fr.training.journal\training.db`. App + `training-mcp.exe` : dossier d'installation NSIS (par défaut `%LOCALAPPDATA%\TrAIning\`). | Le chemin exact est affiché dans la page « Connexion Claude Desktop ». |
@@ -86,8 +86,7 @@ TrAIning/
 │     │  │  ├─ ids.ts            # uuidv7
 │     │  │  └─ migrations/       # 0001_init.sql, 0002_….sql (importés en texte)
 │     │  ├─ drivers/
-│     │  │  ├─ node.ts           # node:sqlite (MCP + tests)
-│     │  │  └─ tauri.ts          # invoke('db_select'…) + mutex
+│     │  │  └─ node.ts           # node:sqlite (MCP, tests, mode navigateur de dev)
 │     │  ├─ schemas/             # Zod : exercise, program, session, food, entry, body, profile, programJson
 │     │  ├─ repos/               # accès aux données, 1 fichier par agrégat
 │     │  │  ├─ exercises.ts  program.ts  sessions.ts  cardio.ts  pain.ts
@@ -109,10 +108,10 @@ TrAIning/
 ├─ apps/
 │  ├─ desktop/                   # application Tauri 2
 │  │  ├─ index.html  vite.config.ts  package.json
+│  │  ├─ dev/devDbBridge.ts      # `pnpm dev:web` : l'UI dans un navigateur, base servie par node:sqlite
 │  │  ├─ src/
 │  │  │  ├─ main.tsx  router.tsx
-│  │  │  ├─ lib/                 # db.ts (instancie core + driver tauri), liveRefresh.ts, shortcuts.ts
-│  │  │  ├─ i18n/fr.ts
+│  │  │  ├─ lib/                 # platform.ts (driver Tauri ou HTTP de dev), app.tsx, queries.ts, router.ts…
 │  │  │  ├─ components/          # UI génériques (Button, NumberField, Dialog, CommandPalette…)
 │  │  │  ├─ features/
 │  │  │  │  ├─ program/          # éditeur de programme, drag & drop, import/export JSON
@@ -149,6 +148,8 @@ TrAIning/
 ---
 
 ## 3. Schéma de base de données
+
+La migration `0001` (phase 1) crée les tables transverses et entraînement (§3.1 à §3.3) ; les tables nutrition et corps (§3.4, §3.5) arriveront avec la phase 4 dans une migration suivante.
 
 Conventions : `id TEXT` = UUID v7 ; booléens `INTEGER` 0/1 ; `created_via` ∈ `app | mcp | import | seed` pour tracer l'origine des écritures.
 
@@ -416,7 +417,8 @@ Statistiques (non stockées, calculées dans `core/services/trainingStats.ts`) :
 
 ```sql
 CREATE TABLE food (
-  id              TEXT PRIMARY KEY,
+  num             INTEGER PRIMARY KEY, -- rowid stable (l'index FTS externe s'y réfère ; VACUUM ne le renumérote pas)
+  id              TEXT NOT NULL UNIQUE,
   source          TEXT NOT NULL CHECK (source IN ('ciqual','off','custom','recipe')),
   source_ref      TEXT,             -- code Ciqual / code-barres EAN
   name            TEXT NOT NULL,
@@ -452,7 +454,7 @@ CREATE INDEX food_recent ON food(last_used_at DESC) WHERE last_used_at IS NOT NU
 -- synchronisé par triggers). Les candidats sont ensuite classés en TS : similarité
 -- (Damerau-Levenshtein par mot) + bonus récents > favoris > perso/recettes > Ciqual > OFF.
 CREATE VIRTUAL TABLE food_fts USING fts5(
-  name, brand, content='food', content_rowid='rowid',
+  name, brand, content='food', content_rowid='num',
   tokenize='trigram remove_diacritics 1'
 );
 -- + triggers food_ai / food_ad / food_au
@@ -558,9 +560,9 @@ Type de jour : `day_info.day_type` s'il est renseigné, sinon déduit (séance m
 ### 3.5 Suivi corporel
 
 ```sql
-CREATE TABLE body_weight (
+CREATE TABLE body_weight (          -- pesées irrégulières : aucune n'est obligatoire
   id           TEXT PRIMARY KEY,
-  date         TEXT NOT NULL UNIQUE, -- une pesée par jour (remplacement explicite)
+  date         TEXT NOT NULL UNIQUE, -- au plus une pesée par jour (remplacement explicite)
   time         TEXT,
   weight_kg    REAL NOT NULL CHECK (weight_kg BETWEEN 20 AND 400),
   note         TEXT,
@@ -601,7 +603,7 @@ CREATE TABLE body_photo (
 | Squat « 90 kg (1RM estimé ~120 kg) », « 2-3 reps en réserve » | `load_kg=90`, `load_note='1RM estimé ~120 kg'`, `rir_min=2`, `rir_max=3` |
 | Développé épaules optionnel | `is_optional=1`, `enabled_by_default=1`, commentaire douleur épaule gauche |
 | Dips | `is_optional=1`, `enabled_by_default=0`, `sets=NULL` |
-| « Fin : Étirements » | slot `block='cooldown'` |
+| « Fin : Étirements » | slot `block='cooldown'`, optionnel |
 | Abdos : blocs Dynamique / Gainage | `block='work'`, `block_label` = « Dynamique » / « Gainage / posture » ; tous `is_optional=1` |
 | « 3 × 30-45 s », « 3 × 30-40 m », « / côté » | `target_unit='s'` / `'m'`, `per_side=1` |
 | Principes généraux | `program.comment` |
@@ -650,7 +652,7 @@ Transport stdio, `@modelcontextprotocol/sdk`, schémas d'entrée Zod stricts (`.
 
 | Outil | Entrée | Sortie |
 |---|---|---|
-| `get_body_metrics` | `from`, `to` | Pesées, moyenne mobile 7 j, tendance kg/semaine (avec nombre de points), tours de taille. |
+| `get_body_metrics` | `from`, `to` | Pesées, moyenne glissante 7 j **calculée sur les pesées disponibles** (avec leur nombre), tendance kg/semaine seulement si les données suffisent (sinon le dire), tours de taille. |
 | `add_weight_entry` | `date?`, `weight_kg` (20-400), `time?`, `note?`, `replace_existing` (déf. `false`) | Pesée créée ; erreur explicite si une pesée existe déjà ce jour et `replace_existing=false`. |
 
 ### Profil
@@ -667,10 +669,13 @@ Transport stdio, `@modelcontextprotocol/sdk`, schémas d'entrée Zod stricts (`.
 
 Aucune suppression ni modification de programme, template ou séance via MCP ; pas d'écriture de séance de musculation (seulement des notes).
 
-### Proposés en option (à valider)
+### Outils complémentaires (validés)
 
-- `add_waist_measurement` — permettre à Claude d'enregistrer le tour de taille hebdomadaire.
-- `get_saved_meals` + `log_saved_meal` — « mets mon petit-déj habituel » en un appel (même règle de confirmation).
+| Outil | Entrée | Sortie |
+|---|---|---|
+| `add_waist_measurement` | `date?`, `value_cm`, `note?`, `replace_existing` (déf. `false`) | Tour de taille enregistré. |
+| `get_saved_meals` | `query?` | Repas enregistrés avec leurs aliments et totaux. |
+| `log_saved_meal` | `saved_meal_id`, `date?`, `meal?`, `scale?` (déf. 1), `user_confirmed: true` | Entrées créées + totaux du jour (même règle de confirmation). |
 
 ### Livrables de connexion
 
@@ -692,17 +697,13 @@ Aucune suppression ni modification de programme, template ou séance via MCP ; p
 
 ---
 
-## 5. Points à valider
+## 5. Décisions validées
 
-1. **Driver SQLite côté app** : commandes Rust `rusqlite` sur connexion unique (recommandé) plutôt que `tauri-plugin-sql`.
-2. **Serveur MCP en `.exe` autonome** (Node SEA + `node:sqlite`, ~80 Mo) installé à côté de l'app.
-3. **Instantané des valeurs nutritionnelles dans chaque entrée du journal** : modifier un aliment ne réécrit pas l'historique (un bouton « recalculer » pourra être ajouté).
-4. **Bloc `cooldown`** ajouté aux trois blocs demandés (pour « Fin : Étirements »).
-5. **Une pesée par jour** (remplacement explicite si nouvelle pesée).
-6. **Paramètre `user_confirmed: true`** exigé par les outils MCP d'écriture nutrition, en plus de la consigne.
-7. **Outils MCP optionnels** (`add_waist_measurement`, `get_saved_meals`/`log_saved_meal`) : oui / non ?
-8. **Unités** : kg uniquement, ou option lb à l'affichage ?
-
-### Contenu de la phase 1 (après validation)
-
-Monorepo, `@training/core` (driver, migrateur, schéma complet `0001_init.sql`, repos programme/exercices, seed, export/import JSON) avec tests Vitest ; app Tauri : connexion SQLite WAL, rafraîchissement sur écriture externe, navigation, éditeur de programme complet (drag & drop, alternatives, optionnels), import/export JSON, paramètre « Restaurer le programme initial ».
+1. **Accès SQLite côté app** : une connexion unique gérée en Rust (`rusqlite`), plutôt que `tauri-plugin-sql`.
+2. **Serveur MCP** : exécutable autonome `training-mcp.exe` (Node SEA + `node:sqlite`), installé à côté de l'app.
+3. **Journal alimentaire** : chaque entrée garde une copie de ses valeurs nutritionnelles ; modifier un aliment ne réécrit pas l'historique.
+4. **Bloc `cooldown`** (« Retour au calme ») en plus d'échauffement / travail / finisher ; les étirements du programme initial sont optionnels.
+5. **Pesées irrégulières** : au plus une par jour, aucune obligation. La moyenne sur 7 jours et la tendance sont calculées sur les pesées disponibles et indiquent sur combien de pesées elles reposent ; en dessous d'un minimum, l'app et Claude le disent au lieu d'afficher une tendance.
+6. **`user_confirmed: true`** exigé par les outils MCP qui écrivent dans le journal alimentaire.
+7. **Outils MCP complémentaires** `add_waist_measurement`, `get_saved_meals`, `log_saved_meal` : inclus.
+8. **Unités** : kg uniquement.

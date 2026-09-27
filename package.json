@@ -1,0 +1,12 @@
+{
+  "name": "training",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm --filter @training/desktop tauri dev",
+    "dev:web": "pnpm --filter @training/desktop dev:web",
+    "build": "pnpm --filter @training/desktop tauri build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
