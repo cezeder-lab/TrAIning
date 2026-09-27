@@ -1,5 +1,11 @@
 import {
   getActiveProgram,
+  getExerciseHistory,
+  getLastPerformance,
+  getSession,
+  listCardio,
+  listMedia,
+  listSessions,
   getSettings,
   getUserProfile,
   listExercises,
@@ -52,4 +58,41 @@ export function useProfile() {
 export function useDbInfo() {
   const { platform } = useApp();
   return useQuery({ queryKey: keys.dbInfo, queryFn: () => platform.dbInfo() });
+}
+
+export function useSessions(from: string, to: string) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['sessions', from, to], queryFn: () => listSessions(platform.db, from, to) });
+}
+
+export function useSession(id: string | null) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['session', id], queryFn: () => getSession(platform.db, id!), enabled: !!id });
+}
+
+export function useCardioList(from: string, to: string) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['cardio', from, to], queryFn: () => listCardio(platform.db, { from, to }) });
+}
+
+export function useLastPerformance(exerciseId: string, beforeDate: string, excludeSessionId: string) {
+  const { platform } = useApp();
+  return useQuery({
+    queryKey: ['lastPerf', exerciseId, beforeDate, excludeSessionId],
+    queryFn: () => getLastPerformance(platform.db, exerciseId, { beforeDate, excludeSessionId }),
+  });
+}
+
+export function useExerciseHistory(exerciseId: string | null) {
+  const { platform } = useApp();
+  return useQuery({
+    queryKey: ['history', exerciseId],
+    queryFn: () => getExerciseHistory(platform.db, exerciseId!),
+    enabled: !!exerciseId,
+  });
+}
+
+export function useMedia(exerciseId: string | null) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['media', exerciseId], queryFn: () => listMedia(platform.db, exerciseId!), enabled: !!exerciseId });
 }

@@ -39,7 +39,19 @@ impl DbState {
         })
     }
 
-    fn with_conn<T>(
+    /// Dossier contenant la base (médias, sauvegardes par défaut).
+    pub fn data_dir(&self) -> PathBuf {
+        self.path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_default()
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub(crate) fn with_conn<T>(
         &self,
         f: impl FnOnce(&Connection) -> rusqlite::Result<T>,
     ) -> Result<T, String> {
@@ -143,17 +155,15 @@ pub fn db_exec(state: State<'_, DbState>, sql: String) -> Result<(), String> {
 pub struct DbInfo {
     path: String,
     data_dir: String,
+    media_dir: String,
 }
 
 #[tauri::command]
 pub fn db_info(state: State<'_, DbState>) -> DbInfo {
     DbInfo {
         path: state.path.display().to_string(),
-        data_dir: state
-            .path
-            .parent()
-            .map(|p| p.display().to_string())
-            .unwrap_or_default(),
+        data_dir: state.data_dir().display().to_string(),
+        media_dir: crate::media::media_dir(&state).display().to_string(),
     }
 }
 

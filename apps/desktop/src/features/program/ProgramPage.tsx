@@ -17,6 +17,7 @@ import { TextArea } from '../../components/fields.tsx';
 import { errorMessage, useAction, useApp } from '../../lib/app.tsx';
 import { useActiveProgram } from '../../lib/queries.ts';
 import { moveItem, patchProgramCache } from './programCache.ts';
+import { SheetExportDialog } from '../sheet-export/SheetExportDialog.tsx';
 import { TemplateEditor } from './TemplateEditor.tsx';
 import { TemplateTabs } from './TemplateTabs.tsx';
 
@@ -132,6 +133,7 @@ export function ProgramPage() {
 function ProgramActions({ program }: { program: Program }) {
   const { platform, toast, confirm } = useApp();
   const run = useAction();
+  const [exporting, setExporting] = useState(false);
 
   const doExport = async () => {
     try {
@@ -174,6 +176,10 @@ function ProgramActions({ program }: { program: Program }) {
 
   return (
     <div className="page-actions">
+      <button type="button" className="btn" onClick={() => setExporting(true)}>
+        Toutes les fiches en images
+      </button>
+      {exporting && <SheetExportDialog source={{ kind: 'program' }} onClose={() => setExporting(false)} />}
       <button type="button" className="btn" onClick={() => void doImport()}>
         Importer JSON
       </button>

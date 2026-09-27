@@ -1,5 +1,5 @@
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, normalize, resolve } from 'node:path';
 import type { IncomingMessage } from 'node:http';
 import type { Plugin } from 'vite';
 
@@ -28,6 +28,38 @@ export function devDbBridge(): Plugin {
           req.on('error', ko);
         });
 
+      const mediaDir = join(dirname(path), 'media');
+      const safe = (rel: string) => {
+        const p = normalize(join(mediaDir, rel));
+        if (!p.startsWith(mediaDir)) throw new Error('Chemin invalide');
+        return p;
+      };
+      server.middlewares.use('/__media', async (req, res) => {
+        try {
+          if (req.url?.startsWith('/file/')) {
+            const p = safe(decodeURIComponent(req.url.slice(6)));
+            const ext = p.split('.').pop()?.toLowerCase();
+            res.setHeader('Content-Type', ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
+            res.end(readFileSync(p));
+            return;
+          }
+          const body = await readBody(req);
+          res.setHeader('Content-Type', 'application/json');
+          if (req.url?.startsWith('/save')) {
+            const rel = `${body.subdir}/${Date.now().toString(16)}${Math.random().toString(16).slice(2, 6)}.${String(body.ext).toLowerCase()}`;
+            mkdirSync(dirname(safe(rel)), { recursive: true });
+            writeFileSync(safe(rel), Buffer.from(body.base64, 'base64'));
+            res.end(JSON.stringify({ result: rel }));
+          } else if (req.url?.startsWith('/delete')) {
+            rmSync(safe(body.rel), { force: true });
+            res.end(JSON.stringify({ result: null }));
+          } else throw new Error('Route inconnue');
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      });
+
       server.middlewares.use('/__db', async (req, res) => {
         res.setHeader('Content-Type', 'application/json');
         try {
@@ -37,7 +69,7 @@ export function devDbBridge(): Plugin {
             return;
           }
           if (req.url?.startsWith('/info')) {
-            res.end(JSON.stringify({ path, dataDir: dirname(path) }));
+            res.end(JSON.stringify({ path, dataDir: dirname(path), mediaDir: join(dirname(path), 'media') }));
             return;
           }
           const { op, sql, params } = await readBody(req);

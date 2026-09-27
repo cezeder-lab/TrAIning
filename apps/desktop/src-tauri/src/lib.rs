@@ -1,5 +1,6 @@
 mod db;
 mod files;
+mod media;
 
 use tauri::Manager;
 
@@ -16,8 +17,15 @@ fn database_path(app: &tauri::App) -> Result<std::path::PathBuf, Box<dyn std::er
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let state = db::DbState::new(database_path(app)?)?;
+            // Les images locales sont servies par le protocole asset, limité au dossier des médias.
+            let media = media::media_dir(&state);
+            std::fs::create_dir_all(&media)?;
+            app.asset_protocol_scope().allow_directory(&media, true)?;
             app.manage(state);
             db::spawn_change_watcher(app.handle().clone());
             Ok(())
@@ -29,6 +37,11 @@ pub fn run() {
             db::db_info,
             files::read_text_file,
             files::write_text_file,
+            files::read_binary_file,
+            files::write_binary_file,
+            media::import_media_file,
+            media::save_media_bytes,
+            media::delete_media_file,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

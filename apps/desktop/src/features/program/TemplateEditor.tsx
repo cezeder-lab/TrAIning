@@ -25,6 +25,7 @@ import { InlineTitle } from '../../components/InlineTitle.tsx';
 import { TextArea } from '../../components/fields.tsx';
 import { useAction, useApp } from '../../lib/app.tsx';
 import { moveItem, patchProgramCache } from './programCache.ts';
+import { SheetExportDialog } from '../sheet-export/SheetExportDialog.tsx';
 import { SlotItem } from './SlotItem.tsx';
 
 const groupKey = (s: TemplateSlot) => `${s.block}|${s.blockLabel ?? ''}`;
@@ -35,6 +36,7 @@ export function TemplateEditor({ template }: { template: WorkoutTemplate }) {
   const { confirm } = useApp();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const slots = template.slots;
 
   const sensors = useSensors(
@@ -112,6 +114,9 @@ export function TemplateEditor({ template }: { template: WorkoutTemplate }) {
           {optionalCount > 0 && ` · ${optionalCount} optionnel${optionalCount > 1 ? 's' : ''}`}
         </span>
         <div className="spacer" />
+        <button type="button" className="btn" onClick={() => setExporting(true)}>
+          Exporter en image
+        </button>
         <button type="button" className="btn btn-ghost" onClick={() => void run((db) => duplicateTemplate(db, template.id), 'Séance dupliquée.')}>
           Dupliquer
         </button>
@@ -162,6 +167,7 @@ export function TemplateEditor({ template }: { template: WorkoutTemplate }) {
         + Ajouter un exercice <kbd>Ctrl+N</kbd>
       </button>
 
+      {exporting && <SheetExportDialog source={{ kind: 'template', templateId: template.id }} onClose={() => setExporting(false)} />}
       {picking && (
         <ExercisePicker
           title={expandedId ? 'Ajouter un exercice après le slot ouvert' : 'Ajouter un exercice'}

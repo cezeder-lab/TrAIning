@@ -12,3 +12,8 @@ export * from './services/format.ts';
 export { initDatabase, restoreInitialProgram, seedReferenceData } from './services/seed/index.ts';
 export { INITIAL_PROGRAM } from './services/seed/initialProgram.ts';
 export { MUSCLE_GROUPS } from './services/seed/referenceData.ts';
+export * from './repos/sessions.ts';
+export * from './repos/cardio.ts';
+export * from './repos/media.ts';
+export * from './services/trainingStats.ts';
+export * from './services/sheet.ts';

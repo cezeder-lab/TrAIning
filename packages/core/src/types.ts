@@ -107,3 +107,129 @@ export interface ProgramSummary {
   createdAt: string;
   updatedAt: string;
 }
+
+// --- Séances (journal) -------------------------------------------------------
+
+export const SESSION_STATUSES = ['planned', 'done', 'skipped'] as const;
+export type SessionStatus = (typeof SESSION_STATUSES)[number];
+export type SessionExerciseStatus = 'pending' | 'done' | 'skipped';
+
+export interface SetEntry {
+  id: string;
+  sessionExerciseId: string;
+  setIndex: number;
+  isWarmup: boolean;
+  plannedLoadKg: number | null;
+  plannedValue: number | null;
+  loadKg: number | null;
+  value: number | null;
+  isDone: boolean;
+  rir: number | null;
+  rpe: number | null;
+  comment: string | null;
+}
+
+export interface SessionExercise {
+  id: string;
+  sessionId: string;
+  templateSlotId: string | null;
+  sort: number;
+  block: Block;
+  blockLabel: string | null;
+  label: string | null;
+  exerciseId: string;
+  exerciseName: string;
+  exerciseKind: ExerciseKind;
+  alternatives: { exerciseId: string; name: string }[];
+  sets: number | null;
+  targetMin: number | null;
+  targetMax: number | null;
+  targetUnit: TargetUnit;
+  perSide: boolean;
+  loadKg: number | null;
+  loadNote: string | null;
+  rirMin: number | null;
+  rirMax: number | null;
+  restS: number | null;
+  plannedComment: string | null;
+  note: string | null;
+  isOptional: boolean;
+  isEnabled: boolean;
+  status: SessionExerciseStatus;
+  setEntries: SetEntry[];
+}
+
+export const PAIN_SIDES = ['left', 'right', 'both', 'center'] as const;
+export type PainSide = (typeof PAIN_SIDES)[number];
+
+export interface PainEntry {
+  id: string;
+  date: string;
+  sessionId: string | null;
+  zone: string;
+  side: PainSide | null;
+  intensity: number;
+  context: string | null;
+  note: string | null;
+  createdVia: string;
+  createdAt: string;
+}
+
+export interface CardioSession {
+  id: string;
+  date: string;
+  startTime: string | null;
+  sessionId: string | null;
+  activity: string;
+  durationS: number;
+  distanceM: number | null;
+  speedKmh: number | null;
+  inclineOrLevel: string | null;
+  hrAvg: number | null;
+  hrMax: number | null;
+  caloriesWatchEst: number | null;
+  feeling: number | null;
+  comment: string | null;
+  createdVia: string;
+}
+
+export interface WorkoutSession {
+  id: string;
+  templateId: string | null;
+  name: string;
+  date: string;
+  status: SessionStatus;
+  startedAt: string | null;
+  endedAt: string | null;
+  fatigue: number | null;
+  soreness: number | null;
+  comment: string | null;
+  createdVia: string;
+  exercises: SessionExercise[];
+  pains: PainEntry[];
+  cardio: CardioSession[];
+}
+
+export interface SessionSummary {
+  id: string;
+  templateId: string | null;
+  name: string;
+  date: string;
+  status: SessionStatus;
+  exerciseCount: number;
+  doneSets: number;
+  plannedSets: number;
+  maxPain: number | null;
+  fatigue: number | null;
+}
+
+export interface ExerciseMedia {
+  id: string;
+  exerciseId: string;
+  kind: 'image' | 'gif' | 'video_link' | 'link';
+  filePath: string | null;
+  url: string | null;
+  caption: string | null;
+  isThumbnail: boolean;
+  sort: number;
+}
