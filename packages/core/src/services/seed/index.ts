@@ -3,7 +3,7 @@ import { migrate } from '../../db/migrate.ts';
 import { nowIso } from '../../db/util.ts';
 import { importProgram } from '../programJson.ts';
 import { INITIAL_PROGRAM } from './initialProgram.ts';
-import { MUSCLE_GROUPS } from './referenceData.ts';
+import { MEAL_CATEGORIES, MUSCLE_GROUPS } from './referenceData.ts';
 
 /** Données de référence (idempotent). */
 export async function seedReferenceData(db: Db): Promise<void> {
@@ -16,6 +16,13 @@ export async function seedReferenceData(db: Db): Promise<void> {
       );
     }
     await tx.execute('INSERT OR IGNORE INTO user_profile (id, updated_at) VALUES (1, ?)', [nowIso()]);
+    // Catégories de repas par défaut, seulement si aucune n'existe (elles restent configurables).
+    const n = (await tx.select<{ n: number }>('SELECT count(*) AS n FROM meal_category'))[0]!.n;
+    if (n === 0) {
+      for (const [i, [id, name]] of MEAL_CATEGORIES.entries()) {
+        await tx.execute('INSERT INTO meal_category (id, name, sort) VALUES (?, ?, ?)', [id, name, i]);
+      }
+    }
   });
 }
 

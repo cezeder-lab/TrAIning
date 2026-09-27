@@ -34,6 +34,17 @@ export function devDbBridge(): Plugin {
         if (!p.startsWith(mediaDir)) throw new Error('Chemin invalide');
         return p;
       };
+      server.middlewares.use('/__resource', (req, res) => {
+        try {
+          const name = decodeURIComponent((req.url ?? '').slice(1));
+          if (!/^[\w.-]+$/.test(name)) throw new Error('Nom invalide');
+          res.end(readFileSync(join(server.config.root, 'src-tauri/resources', name)));
+        } catch {
+          res.statusCode = 404;
+          res.end();
+        }
+      });
+
       server.middlewares.use('/__media', async (req, res) => {
         try {
           if (req.url?.startsWith('/file/')) {

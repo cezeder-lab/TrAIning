@@ -2,6 +2,7 @@
 //! (export / import JSON, fiches de séance en PNG).
 
 use base64::Engine;
+use tauri::Manager;
 
 #[tauri::command(async)]
 pub fn read_text_file(path: String) -> Result<String, String> {
@@ -35,4 +36,21 @@ pub fn write_binary_file(dir: String, name: String, base64: String) -> Result<St
     std::fs::write(&path, bytes)
         .map_err(|e| format!("Écriture de « {} » impossible : {e}", path.display()))?;
     Ok(path.display().to_string())
+}
+
+/// Ressource embarquée dans l'installeur (ex. `ciqual.json.gz`), en base64 ; `None` si absente.
+#[tauri::command(async)]
+pub fn read_resource(app: tauri::AppHandle, name: String) -> Result<Option<String>, String> {
+    if name.contains(['/', '\\']) || name.contains("..") {
+        return Err("Nom de ressource invalide".into());
+    }
+    let path = app
+        .path()
+        .resolve(format!("resources/{name}"), tauri::path::BaseDirectory::Resource)
+        .map_err(|e| e.to_string())?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(Some(base64::engine::general_purpose::STANDARD.encode(bytes)))
 }

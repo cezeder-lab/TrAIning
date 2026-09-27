@@ -22,3 +22,10 @@ export const MUSCLE_GROUPS: MuscleGroup[] = [
   { id: 'calves', name: 'Mollets', region: 'lower', sort: 64 },
   { id: 'mobility', name: 'Mobilité / étirements', region: 'core', sort: 90 },
 ];
+
+export const MEAL_CATEGORIES: [string, string][] = [
+  ['breakfast', 'Petit-déjeuner'],
+  ['lunch', 'Déjeuner'],
+  ['snack', 'Collation'],
+  ['dinner', 'Dîner'],
+];

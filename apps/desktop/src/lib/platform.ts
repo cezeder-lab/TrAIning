@@ -35,6 +35,8 @@ export interface Platform {
   /** Écrit un fichier dans `dir` ; retourne le chemin complet. */
   writeBinaryFile(dir: string, name: string, bytes: Uint8Array): Promise<string>;
   copyImageToClipboard(png: Uint8Array): Promise<void>;
+  /** Ressource embarquée dans l'installeur ; null si absente. */
+  readResource(name: string): Promise<Uint8Array | null>;
   /** Appel d'une commande spécifique à l'application de bureau (sauvegardes, Claude Desktop…). */
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
 }
@@ -118,6 +120,10 @@ async function createTauriPlatform(): Promise<Platform> {
     async copyImageToClipboard(png) {
       const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
       await writeImage(png);
+    },
+    async readResource(name) {
+      const b64 = await invoke<string | null>('read_resource', { name });
+      return b64 ? fromBase64(b64) : null;
     },
     invoke: (command, args) => invoke(command, args),
   };
@@ -213,6 +219,10 @@ async function createWebPlatform(): Promise<Platform> {
     },
     async copyImageToClipboard(png) {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([png as BlobPart], { type: 'image/png' }) })]);
+    },
+    async readResource(name) {
+      const res = await fetch(`/__resource/${name}`);
+      return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
     },
     async invoke() {
       throw new Error("Fonction disponible uniquement dans l'application de bureau.");

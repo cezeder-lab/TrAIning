@@ -1,11 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Modal } from './components/Modal.tsx';
 import { ExercisesPage } from './features/exercises/ExercisesPage.tsx';
+import { BodyPage } from './features/body/BodyPage.tsx';
 import { JournalPage } from './features/journal/JournalPage.tsx';
+import { NutritionPage } from './features/nutrition/NutritionPage.tsx';
 import { SessionPage } from './features/journal/SessionPage.tsx';
 import { PlaceholderPage } from './features/placeholder/PlaceholderPage.tsx';
 import { ProgramPage } from './features/program/ProgramPage.tsx';
 import { SettingsPage } from './features/settings/SettingsPage.tsx';
+import { useApp } from './lib/app.tsx';
+import { ensureCiqual, takeAnnouncement } from './lib/ciqual.ts';
 import { useSettings } from './lib/queries.ts';
 import { navigate, useLocation, type Route } from './lib/router.ts';
 import { applyTheme } from './lib/theme.ts';
@@ -28,6 +32,18 @@ export function App() {
   useEffect(() => {
     if (settings) applyTheme(settings.theme);
   }, [settings]);
+
+  // Premier lancement : base Ciqual embarquée dans l'installeur.
+  const { platform, toast } = useApp();
+  useEffect(() => {
+    ensureCiqual(platform).then(
+      (msg) => {
+        const m = takeAnnouncement(msg);
+        if (m) toast(m);
+      },
+      (err) => console.warn('Ciqual', err),
+    );
+  }, [platform, toast]);
 
   // Ctrl+1…7 : navigation ; « ? » : aide des raccourcis.
   useEffect(() => {
@@ -67,13 +83,11 @@ export function App() {
         {route === 'programme' && <ProgramPage />}
         {route === 'journal' && (param ? <SessionPage key={param} id={param} /> : <JournalPage />)}
         {route === 'exercices' && <ExercisesPage />}
-        {route === 'nutrition' && (
-          <PlaceholderPage title="Nutrition" phase={4} description="Journal alimentaire, Ciqual, Open Food Facts, recettes, objectifs et suivi corporel." />
-        )}
+        {route === 'nutrition' && <NutritionPage />}
         {route === 'claude' && (
           <PlaceholderPage title="Connexion Claude Desktop" phase={5} description="Serveur MCP local, bloc de configuration à copier et test de connexion." />
         )}
-        {route === 'corps' && <PlaceholderPage title="Corps" phase={4} description="Poids, tour de taille, photos." />}
+        {route === 'corps' && <BodyPage />}
         {route === 'parametres' && <SettingsPage />}
       </main>
       {help && <ShortcutsHelp onClose={() => setHelp(false)} />}

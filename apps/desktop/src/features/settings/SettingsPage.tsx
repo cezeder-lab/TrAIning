@@ -1,14 +1,18 @@
 import {
   activateProgram,
+  createMealCategory,
+  reorderMealCategories,
+  updateMealCategory,
   deleteArchivedProgram,
   restoreInitialProgram,
   setSetting,
   updateUserProfile,
   type AppSettings,
 } from '@training/core';
-import { TextArea, TextField } from '../../components/fields.tsx';
+import { useState } from 'react';
+import { TextArea, TextField, Toggle } from '../../components/fields.tsx';
 import { useAction, useApp } from '../../lib/app.tsx';
-import { useDbInfo, usePrograms, useProfile, useSettings } from '../../lib/queries.ts';
+import { useDbInfo, useMealCategories, usePrograms, useProfile, useSettings } from '../../lib/queries.ts';
 import { applyTheme } from '../../lib/theme.ts';
 
 const THEMES: { value: AppSettings['theme']; label: string }[] = [
@@ -29,6 +33,7 @@ export function SettingsPage() {
       <AppearanceSection />
       <ProgramsSection />
       <ProfileSection />
+      <MealCategoriesSection />
       <DataSection />
     </div>
   );
@@ -161,6 +166,50 @@ function ProfileSection() {
         placeholder="ex. réponses concises, tableaux"
         onSave={(responsePreferences) => run((db) => updateUserProfile(db, { responsePreferences }))}
       />
+    </section>
+  );
+}
+
+function MealCategoriesSection() {
+  const { data: cats = [] } = useMealCategories(true);
+  const run = useAction();
+  const [name, setName] = useState('');
+  const move = (i: number, d: number) => {
+    const ids = cats.map((c) => c.id);
+    const [x] = ids.splice(i, 1);
+    ids.splice(i + d, 0, x!);
+    void run((db) => reorderMealCategories(db, ids));
+  };
+  return (
+    <section className="card">
+      <h2>Repas</h2>
+      <p className="muted">Catégories du journal alimentaire. Une catégorie désactivée reste visible les jours où elle contient des aliments.</p>
+      <ul className="meal-cats">
+        {cats.map((c, i) => (
+          <li key={c.id}>
+            <TextField label={`Nom du repas ${i + 1}`} className="label-hidden" required value={c.name} onSave={(n) => n && run((db) => updateMealCategory(db, c.id, { name: n }))} />
+            <Toggle label="Actif" checked={c.isActive} onChange={(isActive) => run((db) => updateMealCategory(db, c.id, { isActive }))} />
+            <button type="button" className="btn-icon" aria-label="Monter" disabled={i === 0} onClick={() => move(i, -1)}>
+              ↑
+            </button>
+            <button type="button" className="btn-icon" aria-label="Descendre" disabled={i === cats.length - 1} onClick={() => move(i, 1)}>
+              ↓
+            </button>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="row"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if ((await run((db) => createMealCategory(db, name))) !== undefined) setName('');
+        }}
+      >
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nouveau repas (ex. Collation pré-séance)" aria-label="Nouveau repas" style={{ maxWidth: 320 }} />
+        <button type="submit" className="btn" disabled={!name.trim()}>
+          Ajouter
+        </button>
+      </form>
     </section>
   );
 }

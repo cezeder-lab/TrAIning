@@ -1,4 +1,13 @@
 import {
+  ciqualStatus,
+  getBodyMetrics,
+  getDayLog,
+  getGoalsAt,
+  getNutritionSummary,
+  listBodyPhotos,
+  listFoods,
+  listMealCategories,
+  listSavedMeals,
   getActiveProgram,
   getExerciseHistory,
   getLastPerformance,
@@ -95,4 +104,58 @@ export function useExerciseHistory(exerciseId: string | null) {
 export function useMedia(exerciseId: string | null) {
   const { platform } = useApp();
   return useQuery({ queryKey: ['media', exerciseId], queryFn: () => listMedia(platform.db, exerciseId!), enabled: !!exerciseId });
+}
+
+// --- Nutrition & corps ---
+
+export function useDayLog(date: string) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['dayLog', date], queryFn: () => getDayLog(platform.db, date) });
+}
+
+export function useMealCategories(includeInactive = false) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['mealCategories', includeInactive], queryFn: () => listMealCategories(platform.db, includeInactive) });
+}
+
+export function useSavedMeals() {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['savedMeals'], queryFn: () => listSavedMeals(platform.db) });
+}
+
+export function usePersonalFoods() {
+  const { platform } = useApp();
+  return useQuery({
+    queryKey: ['foods', 'personal'],
+    queryFn: async () => {
+      const own = await listFoods(platform.db, { sources: ['custom', 'recipe'] });
+      const favorites = await listFoods(platform.db, { favoritesOnly: true });
+      return { own, favorites: favorites.filter((f) => f.source !== 'custom' && f.source !== 'recipe') };
+    },
+  });
+}
+
+export function useCiqualStatus() {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['ciqualStatus'], queryFn: () => ciqualStatus(platform.db) });
+}
+
+export function useGoalsAt(date: string) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['goals', date], queryFn: () => getGoalsAt(platform.db, date) });
+}
+
+export function useNutritionSummary(from: string, to: string) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['nutritionSummary', from, to], queryFn: () => getNutritionSummary(platform.db, from, to) });
+}
+
+export function useBodyMetrics(from: string, to: string) {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['bodyMetrics', from, to], queryFn: () => getBodyMetrics(platform.db, from, to) });
+}
+
+export function useBodyPhotos() {
+  const { platform } = useApp();
+  return useQuery({ queryKey: ['bodyPhotos'], queryFn: () => listBodyPhotos(platform.db) });
 }

@@ -1,0 +1,3 @@
+Ressources embarquées dans l'installeur.
+ciqual.json.gz est généré par `node scripts/prepare-ciqual.mjs` (table Ciqual de l'ANSES,
+Licence Ouverte Etalab) au moment de la compilation ; il n'est pas versionné.

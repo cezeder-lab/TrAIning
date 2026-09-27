@@ -1,6 +1,7 @@
 import type { Db } from './driver.ts';
 import { nowIso } from './util.ts';
 import m0001 from './migrations/0001_init.ts';
+import m0002 from './migrations/0002_nutrition.ts';
 
 interface Migration {
   version: number;
@@ -9,7 +10,10 @@ interface Migration {
 }
 
 /** Liste ordonnée des migrations. Ne jamais modifier une migration publiée : en ajouter une. */
-export const MIGRATIONS: Migration[] = [{ version: 1, name: 'init', sql: m0001 }];
+export const MIGRATIONS: Migration[] = [
+  { version: 1, name: 'init', sql: m0001 },
+  { version: 2, name: 'nutrition', sql: m0002 },
+];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
 

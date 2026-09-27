@@ -39,6 +39,7 @@ pub fn run() {
             files::write_text_file,
             files::read_binary_file,
             files::write_binary_file,
+            files::read_resource,
             media::import_media_file,
             media::save_media_bytes,
             media::delete_media_file,

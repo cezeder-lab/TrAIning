@@ -47,6 +47,9 @@
           "French"
         ]
       }
-    }
+    },
+    "resources": [
+      "resources/*"
+    ]
   }
 }

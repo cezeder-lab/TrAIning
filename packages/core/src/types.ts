@@ -233,3 +233,104 @@ export interface ExerciseMedia {
   isThumbnail: boolean;
   sort: number;
 }
+
+// --- Nutrition ---------------------------------------------------------------
+
+export const FOOD_SOURCES = ['ciqual', 'off', 'custom', 'recipe'] as const;
+export type FoodSource = (typeof FOOD_SOURCES)[number];
+export type WeightState = 'raw' | 'cooked' | 'na';
+export type EntryUnit = 'g' | 'ml' | 'portion';
+export const DAY_TYPES = ['rest', 'training', 'cardio'] as const;
+export type DayType = (typeof DAY_TYPES)[number];
+export type GoalDayType = DayType | 'default';
+
+export interface Nutrients {
+  kcal: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  sugarsG: number | null;
+  fatG: number | null;
+  satFatG: number | null;
+  fiberG: number | null;
+  saltG: number | null;
+}
+
+export interface FoodPortion {
+  id: string;
+  foodId: string;
+  label: string;
+  grams: number;
+  isDefault: boolean;
+}
+
+export interface Food extends Nutrients {
+  id: string;
+  source: FoodSource;
+  sourceRef: string | null;
+  name: string;
+  brand: string | null;
+  category: string | null;
+  basis: '100g' | '100ml';
+  state: WeightState;
+  cookedYield: number | null;
+  alcoholG: number | null;
+  valueFlags: Record<string, string>;
+  isFavorite: boolean;
+  useCount: number;
+  lastUsedAt: string | null;
+  sourceVersion: string | null;
+  isArchived: boolean;
+  portions: FoodPortion[];
+}
+
+export interface FoodEntry {
+  id: string;
+  date: string;
+  mealCategoryId: string;
+  foodId: string | null;
+  label: string;
+  quantity: number;
+  unit: EntryUnit;
+  portionId: string | null;
+  portionLabel: string | null;
+  grams: number;
+  weightState: WeightState;
+  kcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG: number | null;
+  sugarsG: number | null;
+  satFatG: number | null;
+  saltG: number | null;
+  source: FoodSource | 'estimate';
+  isEstimated: boolean;
+  note: string | null;
+  createdVia: string;
+}
+
+export interface MealCategory {
+  id: string;
+  name: string;
+  sort: number;
+  isActive: boolean;
+}
+
+export interface MacroTotals {
+  kcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG: number;
+}
+
+export interface NutritionGoal {
+  id: string;
+  dayType: GoalDayType;
+  validFrom: string;
+  kcal: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  fiberG: number | null;
+}
