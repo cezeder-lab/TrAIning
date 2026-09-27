@@ -2,10 +2,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Modal } from './components/Modal.tsx';
 import { ExercisesPage } from './features/exercises/ExercisesPage.tsx';
 import { BodyPage } from './features/body/BodyPage.tsx';
+import { ClaudePage } from './features/claude/ClaudePage.tsx';
 import { JournalPage } from './features/journal/JournalPage.tsx';
 import { NutritionPage } from './features/nutrition/NutritionPage.tsx';
 import { SessionPage } from './features/journal/SessionPage.tsx';
-import { PlaceholderPage } from './features/placeholder/PlaceholderPage.tsx';
 import { ProgramPage } from './features/program/ProgramPage.tsx';
 import { SettingsPage } from './features/settings/SettingsPage.tsx';
 import { useApp } from './lib/app.tsx';
@@ -84,9 +84,7 @@ export function App() {
         {route === 'journal' && (param ? <SessionPage key={param} id={param} /> : <JournalPage />)}
         {route === 'exercices' && <ExercisesPage />}
         {route === 'nutrition' && <NutritionPage />}
-        {route === 'claude' && (
-          <PlaceholderPage title="Connexion Claude Desktop" phase={5} description="Serveur MCP local, bloc de configuration à copier et test de connexion." />
-        )}
+        {route === 'claude' && <ClaudePage />}
         {route === 'corps' && <BodyPage />}
         {route === 'parametres' && <SettingsPage />}
       </main>

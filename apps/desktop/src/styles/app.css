@@ -2130,3 +2130,32 @@ textarea::placeholder {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* ---------- Claude Desktop ---------- */
+.code-block {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 8px 0;
+  max-height: 360px;
+  overflow: auto;
+}
+.steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prompt-item summary {
+  cursor: pointer;
+  padding: 6px 0;
+}
+.audit-args {
+  word-break: break-word;
+}

@@ -9,6 +9,7 @@
     "core:default",
     "dialog:allow-open",
     "dialog:allow-save",
+    "clipboard-manager:allow-write-text",
     "dialog:allow-ask",
     "dialog:allow-message",
     "opener:allow-open-url",

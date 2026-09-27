@@ -109,3 +109,17 @@ export async function setDayType(db: Db, date: string, dayType: DayType | null):
     [date, dayType, nowIso()],
   );
 }
+
+/** Ajoute une note au jour (sans écraser la note existante). */
+export async function appendDayNote(db: Db, date: string, note: string): Promise<void> {
+  await db.execute(
+    `INSERT INTO day_info (date, note, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT (date) DO UPDATE SET note = CASE WHEN day_info.note IS NULL OR day_info.note = '' THEN excluded.note
+       ELSE day_info.note || char(10) || excluded.note END, updated_at = excluded.updated_at`,
+    [date, note, nowIso()],
+  );
+}
+
+export async function getDayNote(db: Db, date: string): Promise<string | null> {
+  return (await db.select<{ note: string | null }>('SELECT note FROM day_info WHERE date = ?', [date]))[0]?.note ?? null;
+}

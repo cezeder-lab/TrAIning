@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "training": {
+      "command": "C:\\Users\\VOTRE_NOM\\AppData\\Local\\TrAIning\\training-mcp.exe",
+      "args": ["--db", "C:\\Users\\VOTRE_NOM\\AppData\\Roaming\\fr.training.journal\\training.db"]
+    }
+  }
+}

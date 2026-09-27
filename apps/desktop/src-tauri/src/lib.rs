@@ -1,3 +1,5 @@
+mod backup;
+mod claude;
 mod db;
 mod files;
 mod media;
@@ -28,6 +30,7 @@ pub fn run() {
             app.asset_protocol_scope().allow_directory(&media, true)?;
             app.manage(state);
             db::spawn_change_watcher(app.handle().clone());
+            backup::spawn_backup_scheduler(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -40,6 +43,13 @@ pub fn run() {
             files::read_binary_file,
             files::write_binary_file,
             files::read_resource,
+            backup::backup_status,
+            backup::backup_now,
+            backup::export_all,
+            backup::restore_backup,
+            claude::mcp_info,
+            claude::mcp_install,
+            claude::mcp_self_test,
             media::import_media_file,
             media::save_media_bytes,
             media::delete_media_file,

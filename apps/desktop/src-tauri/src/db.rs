@@ -62,6 +62,17 @@ impl DbState {
         f(&conn).map_err(|e| e.to_string())
     }
 
+    pub(crate) fn with_conn_mut<T>(
+        &self,
+        f: impl FnOnce(&mut Connection) -> rusqlite::Result<T>,
+    ) -> Result<T, String> {
+        let mut conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Connexion à la base indisponible".to_string())?;
+        f(&mut conn).map_err(|e| e.to_string())
+    }
+
     pub fn data_version(&self) -> Result<i64, String> {
         self.with_conn(|c| c.query_row("PRAGMA data_version", [], |r| r.get(0)))
     }

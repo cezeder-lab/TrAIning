@@ -46,11 +46,16 @@ pub fn read_resource(app: tauri::AppHandle, name: String) -> Result<Option<Strin
     }
     let path = app
         .path()
-        .resolve(format!("resources/{name}"), tauri::path::BaseDirectory::Resource)
+        .resolve(
+            format!("resources/{name}"),
+            tauri::path::BaseDirectory::Resource,
+        )
         .map_err(|e| e.to_string())?;
     if !path.exists() {
         return Ok(None);
     }
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
-    Ok(Some(base64::engine::general_purpose::STANDARD.encode(bytes)))
+    Ok(Some(
+        base64::engine::general_purpose::STANDARD.encode(bytes),
+    ))
 }

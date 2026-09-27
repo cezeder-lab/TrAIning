@@ -50,6 +50,9 @@
     },
     "resources": [
       "resources/*"
+    ],
+    "externalBin": [
+      "binaries/training-mcp"
     ]
   }
 }

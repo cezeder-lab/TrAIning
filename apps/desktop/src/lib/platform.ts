@@ -35,6 +35,7 @@ export interface Platform {
   /** Écrit un fichier dans `dir` ; retourne le chemin complet. */
   writeBinaryFile(dir: string, name: string, bytes: Uint8Array): Promise<string>;
   copyImageToClipboard(png: Uint8Array): Promise<void>;
+  copyText(text: string): Promise<void>;
   /** Ressource embarquée dans l'installeur ; null si absente. */
   readResource(name: string): Promise<Uint8Array | null>;
   /** Appel d'une commande spécifique à l'application de bureau (sauvegardes, Claude Desktop…). */
@@ -120,6 +121,10 @@ async function createTauriPlatform(): Promise<Platform> {
     async copyImageToClipboard(png) {
       const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
       await writeImage(png);
+    },
+    async copyText(text) {
+      const { writeText } = await import('@tauri-apps/plugin-clipboard-manager');
+      await writeText(text);
     },
     async readResource(name) {
       const b64 = await invoke<string | null>('read_resource', { name });
@@ -220,6 +225,7 @@ async function createWebPlatform(): Promise<Platform> {
     async copyImageToClipboard(png) {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([png as BlobPart], { type: 'image/png' }) })]);
     },
+    copyText: (text) => navigator.clipboard.writeText(text),
     async readResource(name) {
       const res = await fetch(`/__resource/${name}`);
       return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;

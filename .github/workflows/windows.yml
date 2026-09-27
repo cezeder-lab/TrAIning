@@ -1,0 +1,82 @@
+# Compile l'installeur Windows (TrAIning_x.y.z_x64-setup.exe) et le publie dans la release
+# « derniere-version » du dépôt : https://github.com/<dépôt>/releases/tag/derniere-version
+name: Installeur Windows
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Tests (couche de données, serveur MCP)
+        run: pnpm test
+
+      - name: Vérification des types
+        run: pnpm typecheck
+
+      - name: Base Ciqual (ANSES) embarquée
+        run: node scripts/prepare-ciqual.mjs
+
+      - name: Serveur MCP (exécutable autonome)
+        run: pnpm --filter @training/mcp-server build
+
+      - name: Tests Rust
+        working-directory: apps/desktop/src-tauri
+        run: cargo test
+
+      - name: Installeur
+        run: pnpm --filter @training/desktop tauri build
+
+      - name: Artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrAIning-installeur-windows
+          path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Publier la release « derniere-version »
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          FILE=$(ls apps/desktop/src-tauri/target/release/bundle/nsis/*.exe | head -1)
+          CIQUAL=$( [ -f apps/desktop/src-tauri/resources/ciqual.json.gz ] && echo "incluse" || echo "non incluse (téléchargement proposé au premier lancement)" )
+          gh release delete derniere-version --cleanup-tag --yes || true
+          sleep 5
+          gh release create derniere-version "$FILE" \
+            --target "$GITHUB_SHA" \
+            --title "TrAIning — dernière version" \
+            --notes "Installeur Windows compilé automatiquement depuis ${GITHUB_REF_NAME} (${GITHUB_SHA::7}), le $(date -u '+%d/%m/%Y à %H:%M UTC').
+
+          - Base Ciqual : ${CIQUAL}
+          - Guide d'installation : docs/installation.md"

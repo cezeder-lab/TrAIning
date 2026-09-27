@@ -9,9 +9,10 @@ import {
   updateUserProfile,
   type AppSettings,
 } from '@training/core';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { TextArea, TextField, Toggle } from '../../components/fields.tsx';
-import { useAction, useApp } from '../../lib/app.tsx';
+import { errorMessage, useAction, useApp } from '../../lib/app.tsx';
 import { useDbInfo, useMealCategories, usePrograms, useProfile, useSettings } from '../../lib/queries.ts';
 import { applyTheme } from '../../lib/theme.ts';
 
@@ -214,21 +215,157 @@ function MealCategoriesSection() {
   );
 }
 
+interface BackupStatus {
+  dir: string;
+  keep: number;
+  files: { name: string; path: string; size: number; modifiedMs: number; automatic: boolean }[];
+}
+
 function DataSection() {
   const { data: info } = useDbInfo();
-  const { platform } = useApp();
+  const { data: settings } = useSettings();
+  const { platform, toast, confirm } = useApp();
+  const run = useAction();
+  const desktop = platform.kind === 'tauri';
+  const { data: backups, refetch } = useQuery({
+    queryKey: ['backups'],
+    queryFn: () => platform.invoke<BackupStatus>('backup_status'),
+    enabled: desktop,
+  });
+
+  const act = async (fn: () => Promise<string>, msg: (r: string) => string) => {
+    try {
+      toast(msg(await fn()));
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      void refetch();
+    }
+  };
+
+  const restore = async (path: string) => {
+    const ok = await confirm({
+      title: 'Restaurer une sauvegarde',
+      message: `Remplacer toutes les données actuelles par la sauvegarde :\n${path}\n\nUne copie de sécurité de l'état actuel est faite avant. L'application va redémarrer son affichage.`,
+      confirmLabel: 'Restaurer',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const safety = await platform.invoke<string>('restore_backup', { path });
+      toast(`Sauvegarde restaurée. Copie de sécurité : ${safety}`);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
+  };
+
+  const chooseDir = async (key: 'backupDir' | 'imageExportDir', title: string) => {
+    const dir = await platform.pickDirectory(title);
+    if (dir) {
+      await run((db) => setSetting(db, key, dir));
+      void refetch();
+    }
+  };
+
   return (
     <section className="card">
-      <h2>Données</h2>
+      <h2>Données et sauvegardes</h2>
       <dl className="kv">
         <dt>Base de données</dt>
         <dd>
           <code>{info?.path ?? '…'}</code>
         </dd>
-        <dt>Environnement</dt>
-        <dd>{platform.kind === 'tauri' ? 'Application' : 'Navigateur (développement)'}</dd>
+        <dt>Médias (images, photos)</dt>
+        <dd>
+          <code>{info?.mediaDir ?? '…'}</code>
+        </dd>
+        <dt>Export des fiches</dt>
+        <dd>
+          <code>{settings?.imageExportDir ?? 'non choisi'}</code>{' '}
+          <button type="button" className="btn-link" onClick={() => void chooseDir('imageExportDir', "Dossier d'export des fiches de séance")}>
+            changer
+          </button>
+        </dd>
+        <dt>Sauvegardes auto</dt>
+        <dd>
+          {desktop ? (
+            <>
+              <code>{backups?.dir ?? '…'}</code>{' '}
+              <button type="button" className="btn-link" onClick={() => void chooseDir('backupDir', 'Dossier des sauvegardes automatiques')}>
+                changer
+              </button>
+              <div className="muted small">Une par jour (au lancement puis toutes les heures si besoin), les plus anciennes sont supprimées.</div>
+            </>
+          ) : (
+            'dans l’application de bureau'
+          )}
+        </dd>
       </dl>
-      <p className="muted">Sauvegardes automatiques, export et restauration de la base : phase 6.</p>
+      {desktop && (
+        <>
+          <div className="row">
+            <span className="field-label">Nombre de sauvegardes automatiques à garder</span>
+            <select
+              style={{ width: 'auto' }}
+              value={settings?.backupKeepDays ?? 14}
+              onChange={(e) => void run((db) => setSetting(db, 'backupKeepDays', Number(e.target.value))).then(() => refetch())}
+            >
+              {[7, 14, 30, 60, 90].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="row">
+            <button type="button" className="btn" onClick={() => void act(() => platform.invoke<string>('backup_now'), (p) => `Sauvegarde créée : ${p}`)}>
+              Sauvegarder maintenant
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={async () => {
+                const dir = await platform.pickDirectory('Où créer le dossier de sauvegarde complète ?');
+                if (dir) await act(() => platform.invoke<string>('export_all', { parent: dir }), (p) => `Export complet (base + photos) : ${p}`);
+              }}
+            >
+              Exporter toutes les données…
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={async () => {
+                const f = await platform.pickFile('Sauvegarde TrAIning', ['db']);
+                if (f) await restore(f);
+              }}
+            >
+              Restaurer depuis un fichier…
+            </button>
+          </div>
+          {backups && backups.files.length > 0 && (
+            <details>
+              <summary className="muted">Sauvegardes disponibles ({backups.files.length})</summary>
+              <table className="data-table">
+                <tbody>
+                  {backups.files.map((b) => (
+                    <tr key={b.path}>
+                      <td>{new Date(b.modifiedMs).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                      <td className="muted small">{b.automatic ? 'automatique' : b.name}</td>
+                      <td className="num muted">{Math.round(b.size / 1024)} Ko</td>
+                      <td>
+                        <button type="button" className="btn-link" onClick={() => void restore(b.path)}>
+                          Restaurer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          )}
+        </>
+      )}
     </section>
   );
 }

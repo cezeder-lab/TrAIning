@@ -28,3 +28,5 @@ export * from './services/bodyStats.ts';
 export * from './services/nutritionSummary.ts';
 export * from './services/ciqual.ts';
 export * from './services/openFoodFacts.ts';
+export * from './repos/audit.ts';
+export * from './services/mcpPrompts.ts';
