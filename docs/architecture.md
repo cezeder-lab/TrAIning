@@ -149,7 +149,7 @@ TrAIning/
 
 ## 3. Schéma de base de données
 
-La migration `0001` (phase 1) crée les tables transverses et entraînement (§3.1 à §3.3) ; les tables nutrition et corps (§3.4, §3.5) arriveront avec la phase 4 dans une migration suivante.
+La migration `0001` (phase 1) crée les tables transverses et entraînement (§3.1 à §3.3) ; la migration `0002` (phase 4) ajoute les tables nutrition et corps (§3.4, §3.5).
 
 Conventions : `id TEXT` = UUID v7 ; booléens `INTEGER` 0/1 ; `created_via` ∈ `app | mcp | import | seed` pour tracer l'origine des écritures.
 
