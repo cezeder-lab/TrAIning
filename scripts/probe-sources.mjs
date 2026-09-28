@@ -1,5 +1,6 @@
 // Diagnostic temporaire : inspecte les fichiers réels de Ciqual et du Fichier canadien (FCÉN).
-import { unzipSync } from 'fflate';
+import { createRequire } from 'node:module';
+const { unzipSync } = createRequire(new URL('../packages/core/package.json', import.meta.url))('fflate');
 import { decodeXml, findCiqualZipUrls } from '../packages/core/src/services/ciqual.ts';
 
 const log = (...a) => console.log(...a);
