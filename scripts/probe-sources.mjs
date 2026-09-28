@@ -34,47 +34,40 @@ for (const a of alims) {
   }
 }
 log(`aliments ${alims.length} ; 328 manquant ${miss328} ; dont autre code énergie dispo ${fromOther} ; aucun code énergie ${fromNothing}`);
-for (const a of alims.filter((x) => /grec|skyr|fromage blanc/i.test(x.alim_nom_fr)).slice(0, 25)) {
+for (const a of alims.filter((x) => /grec|skyr/i.test(x.alim_nom_fr)).slice(0, 12)) {
   const v = by.get(a.alim_code) ?? {};
   log(' ', a.alim_code, a.alim_nom_fr, '|', E.map((k) => `${k}=${v[k]}`).join(' '), '| P', v['25000'], 'G', v['31000'], 'L', v['40000'], 'fib', v['34100']);
 }
-log('exemples sans 328 :');
-for (const a of alims.filter((x) => { const v = by.get(x.alim_code) ?? {}; return !v['328'] || v['328'] === '-'; }).slice(0, 15)) {
-  const v = by.get(a.alim_code) ?? {};
-  log(' ', a.alim_code, a.alim_nom_fr, '|', E.map((k) => `${k}=${v[k]}`).join(' '), '| P', v['25000'], 'G', v['31000'], 'L', v['40000']);
+log('===== FCÉN 2026 =====');
+const base = 'https://open.canada.ca';
+const pkg = (await (await fetch(`${base}/data/api/action/package_show?id=1b6139bd-ed7e-4043-bc28-ff00e10f3109`)).json()).result;
+log('licence', pkg.license_id, pkg.license_title, '| modifié', pkg.metadata_modified);
+const all = pkg.resources.find((r) => /all-files/i.test(r.url));
+const zurl = all.url.startsWith('http') ? all.url : base + all.url;
+log('zip', zurl);
+const z2 = unzipSync(new Uint8Array(await (await fetch(zurl)).arrayBuffer()));
+for (const [name, bytes] of Object.entries(z2)) {
+  const head = bytes.subarray(0, 700);
+  let enc = 'utf-8';
+  try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { enc = 'latin1'; }
+  log('--', name, bytes.length, 'octets', enc, bytes[0] === 0xef ? 'BOM' : '');
+  log(new TextDecoder(enc).decode(head).split(/\r?\n/).slice(0, 3).join('\n'));
 }
-
-log('===== FCÉN (Canada) =====');
-try {
-  const r = await fetch('https://open.canada.ca/data/api/action/package_search?q=%22Canadian%20Nutrient%20File%22&rows=10');
-  const d = await r.json();
-  for (const p of d.result.results) {
-    log('paquet', p.name, '|', p.title?.en ?? p.title);
-    for (const res of p.resources ?? []) log('   ', res.format, '|', res.name?.en ?? res.name, '|', res.url);
-  }
-} catch (e) {
-  log('CKAN erreur', e.message);
-}
-for (const u of [
-  'https://www.canada.ca/content/dam/hc-sc/migration/hc-sc/fn-an/alt_formats/zip/nutrition/fiche-nutri-data/cnf-fcen-csv.zip',
-  'https://www.canada.ca/content/dam/hc-sc/migration/hc-sc/fn-an/alt_formats/zip/nutrition/fiche-nutri-data/cnf-fcen-csv-eng.zip',
-]) {
-  try {
-    const r = await fetch(u);
-    log('essai', u, r.status, r.headers.get('content-type'));
-    if (!r.ok) continue;
-    const z = unzipSync(new Uint8Array(await r.arrayBuffer()));
-    for (const [name, bytes] of Object.entries(z)) {
-      const t = new TextDecoder('latin1').decode(bytes.subarray(0, 600));
-      log('--', name, bytes.length, 'octets\n', t.split(/\r?\n/).slice(0, 3).join('\n'));
-    }
-    const food = Object.keys(z).find((n) => /food name/i.test(n));
-    if (food) {
-      const txt = new TextDecoder('latin1').decode(z[food]);
-      for (const l of txt.split(/\r?\n/).filter((l) => /grec|greek/i.test(l)).slice(0, 10)) log('  >', l);
-    }
-    break;
-  } catch (e) {
-    log('erreur', u, e.message);
-  }
-}
+const find = (re) => Object.keys(z2).find((n) => re.test(n));
+const txt = (re) => { const b = z2[find(re)]; try { return new TextDecoder('utf-8', { fatal: true }).decode(b); } catch { return new TextDecoder('latin1').decode(b); } };
+const nn = txt(/nutrient_name/i).split(/\r?\n/);
+log('nutriments clés :');
+for (const l of nn) if (/^(203|204|205|208|268|269|291|606|307|221|\w*),/.test(l) && /(PROT|FAT|CARB|KCAL|KJ|SUG|FIB|FASAT|NA|ALC|ENERG)/i.test(l)) log('  ', l);
+const foods = txt(/food_name/i).split(/\r?\n/);
+const greek = foods.filter((l) => /greek/i.test(l)).slice(0, 4);
+log('yogourts grecs :', greek);
+const ids = greek.map((l) => l.split(',')[0]);
+const amounts = txt(/nutrient_amount/i).split(/\r?\n/);
+log('entête montants :', amounts[0]);
+for (const id of ids.slice(0, 2)) log('  valeurs', id, amounts.filter((l) => l.startsWith(id + ',')).filter((l) => /,(203|204|205|208|291|269),/.test(l)).join(' | '));
+const conv = txt(/measure_weight|conversion/i).split(/\r?\n/);
+log('entête mesures :', conv[0]);
+log('  mesures', ids[0], conv.filter((l) => l.startsWith(ids[0] + ',')).slice(0, 6).join(' | '));
+const mn = txt(/measure_name/i).split(/\r?\n/);
+log('  noms de mesures (extrait) :', mn.slice(0, 6).join(' | '));
+log('nb aliments', foods.length - 1);
