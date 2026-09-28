@@ -7,7 +7,7 @@ Durée : environ 15 minutes. Aucune connaissance technique nécessaire : pas bes
 ## Étape 1 — Télécharger l'installeur
 
 1. Ouvrez la page des versions du dépôt : **https://github.com/cezeder-lab/TrAIning/releases/tag/derniere-version** (connectez-vous à GitHub si la page demande une connexion : le dépôt est privé).
-2. Dans la section **Assets**, cliquez sur le fichier **`TrAIning_0.1.0_x64-setup.exe`** (environ 100 Mo).
+2. Dans la section **Assets**, cliquez sur le fichier **`TrAIning_0.1.0_x64-setup.exe`** (environ 25 Mo).
 3. Le navigateur peut afficher « ce fichier n'est pas fréquemment téléchargé » : cliquez sur **⋯ → Conserver** (ou **Conserver quand même**).
 
 > Si la page n'existe pas encore, la compilation est en cours sur GitHub (onglet **Actions** du dépôt, 15 à 25 minutes). Revenez un peu plus tard.

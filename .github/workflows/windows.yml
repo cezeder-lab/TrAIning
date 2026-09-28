@@ -5,6 +5,7 @@ name: Installeur Windows
 on:
   push:
     branches: [main, 'claude/**']
+    paths-ignore: ['docs/**', '**/*.md']
   workflow_dispatch:
 
 concurrency:
