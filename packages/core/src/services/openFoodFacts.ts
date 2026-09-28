@@ -7,6 +7,8 @@ import { ENERGY_COMPUTED_FLAG, energyFromMacros } from './foodPack.ts';
 type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 
 const BASE = 'https://world.openfoodfacts.org';
+/** Recherche « search-a-licious » : l'ancienne recherche (cgi/search.pl) renvoie souvent 503 ou des résultats sans rapport. */
+const SEARCH = 'https://search.openfoodfacts.org/search';
 const FIELDS = 'code,product_name,product_name_fr,brands,nutriments,serving_quantity,serving_size,quantity';
 export const OFF_USER_AGENT = 'TrAIning/0.1 (application personnelle ; journal nutrition)';
 
@@ -58,7 +60,7 @@ export function mapOffProduct(p: Record<string, any>): OffFood | null {
   return {
     sourceRef: String(p.code),
     name,
-    brand: (String(p.brands ?? '').split(',')[0] ?? '').trim() || null,
+    brand: ((Array.isArray(p.brands) ? String(p.brands[0] ?? '') : String(p.brands ?? '')).split(',')[0] ?? '').trim() || null,
     basis: liquid ? '100ml' : '100g',
     kcal,
     proteinG: num(n.proteins_100g),
@@ -75,19 +77,44 @@ export function mapOffProduct(p: Record<string, any>): OffFood | null {
 }
 
 const headers = { 'User-Agent': OFF_USER_AGENT, Accept: 'application/json' };
+const TIMEOUT_MS = 15000;
 
-export async function offSearch(fetchFn: FetchFn, query: string, pageSize = 20): Promise<OffFood[]> {
-  const url = `${BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=${pageSize}&fields=${FIELDS}&lc=fr`;
-  const res = await fetchFn(url, { headers });
+async function getJson<T>(fetchFn: FetchFn, url: string): Promise<T> {
+  const res = await fetchFn(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Open Food Facts indisponible (HTTP ${res.status}).`);
-  const data = (await res.json()) as { products?: Record<string, unknown>[] };
-  return (data.products ?? []).map(mapOffProduct).filter((p): p is OffFood => p !== null);
+  return (await res.json()) as T;
+}
+
+/** Recherche par nom ; les produits sans valeurs nutritionnelles exploitables sont ignorés. */
+export async function offSearch(fetchFn: FetchFn, query: string, pageSize = 20): Promise<OffFood[]> {
+  // Plus de résultats que demandé : une partie n'a pas de valeurs nutritionnelles.
+  const size = Math.min(pageSize * 2, 50);
+  const map = (products: Record<string, unknown>[] | undefined) =>
+    (products ?? []).map(mapOffProduct).filter((p): p is OffFood => p !== null).slice(0, pageSize);
+  try {
+    const data = await getJson<{ hits?: Record<string, unknown>[] }>(
+      fetchFn,
+      `${SEARCH}?q=${encodeURIComponent(query)}&langs=fr&page_size=${size}&fields=${FIELDS}`,
+    );
+    return map(data.hits);
+  } catch (err) {
+    // Repli sur l'ancienne recherche si le nouveau service est en panne.
+    try {
+      const data = await getJson<{ products?: Record<string, unknown>[] }>(
+        fetchFn,
+        `${BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=${size}&fields=${FIELDS}&lc=fr`,
+      );
+      return map(data.products);
+    } catch {
+      throw new Error(`${err instanceof Error ? err.message : String(err)} Service en ligne momentanément surchargé : réessayez plus tard ; les produits déjà consultés restent disponibles hors ligne.`);
+    }
+  }
 }
 
 export async function offByBarcode(fetchFn: FetchFn, barcode: string): Promise<OffFood | null> {
   const code = barcode.replace(/\D/g, '');
   if (code.length < 8) return null;
-  const res = await fetchFn(`${BASE}/api/v2/product/${code}.json?fields=${FIELDS}`, { headers });
+  const res = await fetchFn(`${BASE}/api/v2/product/${code}.json?fields=${FIELDS}`, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Open Food Facts indisponible (HTTP ${res.status}).`);
   const data = (await res.json()) as { status?: number; product?: Record<string, unknown> };
