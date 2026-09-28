@@ -143,7 +143,7 @@ export function createServer(ctx: ServerContext): McpServer {
 
   tool(
     'search_food',
-    "Cherche un aliment dans toutes les sources et renvoie ses valeurs nutritionnelles et sa source : récents, favoris, base perso et recettes, Ciqual (ANSES), puis Open Food Facts en ligne (produits de marque, code-barres). Tolère fautes et accents. C'est la seule source autorisée de valeurs nutritionnelles.",
+    "Cherche un aliment dans toutes les sources et renvoie ses valeurs nutritionnelles et sa source : récents, favoris, base perso et recettes, Ciqual (ANSES), Fichier canadien sur les éléments nutritifs (FCÉN, noms français ou anglais), puis Open Food Facts en ligne (produits de marque, code-barres). Tolère fautes et accents. C'est la seule source autorisée de valeurs nutritionnelles.",
     {
       query: z.string().min(2).max(120).optional().describe('Nom de l’aliment, ex. « skyr », « riz basmati cuit »'),
       barcode: z.string().min(8).max(14).optional().describe('Code-barres EAN (Open Food Facts)'),

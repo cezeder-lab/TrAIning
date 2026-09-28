@@ -158,7 +158,7 @@ export function AddFoodDialog(props: { date: string; mealId: string; mealName: s
           </button>
         )}
       </div>
-      <p className="picker-help">↑ ↓ puis Entrée · Priorité : récents, favoris, base perso, Ciqual, Open Food Facts</p>
+      <p className="picker-help">↑ ↓ puis Entrée · Priorité : récents, favoris, base perso, Ciqual et FCÉN, Open Food Facts</p>
     </Modal>
   );
 }
@@ -212,7 +212,8 @@ function QuantityStep(props: { food: Food; date: string; mealId: string; mealNam
           {f.brand && <span className="muted"> · {f.brand}</span>}
           <div className="muted small">
             {SOURCE_LABELS[f.source]} · {per100(f)}
-            {Object.keys(f.valueFlags).length > 0 && ' · certaines valeurs « traces » ou sous le seuil de détection'}
+            {f.valueFlags.kcal && ` · énergie ${f.valueFlags.kcal}`}
+            {Object.keys(f.valueFlags).some((k) => k !== 'kcal') && ' · certaines valeurs « traces » ou sous le seuil de détection'}
           </div>
         </div>
         <button

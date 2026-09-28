@@ -1,6 +1,7 @@
 import type { Db } from '../db/driver.ts';
 import { normalizeText } from '../db/util.ts';
 import { loadPortions, mapFood } from '../repos/foods.ts';
+import { expandQuery } from './foodSynonyms.ts';
 import type { Food, FoodSource } from '../types.ts';
 
 type R = Record<string, any>;
@@ -30,9 +31,14 @@ function tokenSimilarity(token: string, word: string): number {
   return sim >= 0.6 ? sim * 0.85 : 0;
 }
 
+/** Mots de liaison ignorés (« poitrine de poulet » ≈ « poulet, poitrine »). */
+const STOP_WORDS = new Set(['de', 'du', 'des', 'd', 'la', 'le', 'les', 'l', 'a', 'au', 'aux', 'et', 'en', 'un', 'une']);
+
 /** Score textuel 0-1 d'un nom pour une requête (chaque mot saisi doit trouver un écho). */
 export function textScore(query: string, name: string): number {
-  const tokens = normalizeText(query).split(' ').filter(Boolean);
+  const all = normalizeText(query).split(/[\s']+/).filter(Boolean);
+  const meaningful = all.filter((t) => !STOP_WORDS.has(t));
+  const tokens = meaningful.length ? meaningful : all;
   const words = normalizeText(name).split(/[\s,;()'/-]+/).filter(Boolean);
   if (!tokens.length || !words.length) return 0;
   let sum = 0;
@@ -57,13 +63,14 @@ export interface FoodSearchResult {
 
 const RECENT_DAYS = 60;
 
-/** Priorité : récents > favoris > base perso / recettes > Ciqual > Open Food Facts. */
+/** Priorité : récents > favoris > base perso / recettes > Ciqual > FCÉN > Open Food Facts. */
 function boost(r: R): { boost: number; badge: SearchBadge } {
   const recent = r.last_used_at && Date.now() - Date.parse(r.last_used_at) < RECENT_DAYS * 86_400_000;
   if (recent) return { boost: 0.3, badge: 'recent' };
   if (r.is_favorite) return { boost: 0.25, badge: 'favorite' };
   if (r.source === 'custom' || r.source === 'recipe') return { boost: 0.15, badge: r.source };
   if (r.source === 'ciqual') return { boost: 0.05, badge: 'ciqual' };
+  if (r.source === 'cnf') return { boost: 0.04, badge: 'cnf' };
   return { boost: 0, badge: r.source };
 }
 
@@ -85,26 +92,34 @@ export async function searchFoods(
   const q = normalizeText(query);
   if (!q) return [];
   const sourceFilter = opts.sources?.length ? `AND f.source IN (${opts.sources.map(() => '?').join(',')})` : '';
-  const fts = trigramQuery(q);
-  let rows: R[];
-  if (fts) {
-    rows = await db.select<R>(
-      `SELECT f.* FROM food_fts JOIN food f ON f.num = food_fts.rowid
-        WHERE food_fts MATCH ? AND f.is_archived = 0 ${sourceFilter}
-        ORDER BY bm25(food_fts) LIMIT 600`,
-      [fts, ...(opts.sources ?? [])],
-    );
-  } else {
-    rows = await db.select<R>(
-      `SELECT f.* FROM food f WHERE f.name_norm LIKE ? AND f.is_archived = 0 ${sourceFilter} LIMIT 300`,
-      [`%${q}%`, ...(opts.sources ?? [])],
-    );
+  // La requête et ses synonymes (« yaourt grec » → « yogourt grecque »…).
+  const variants = expandQuery(q);
+  const byId = new Map<string, R>();
+  for (const v of variants) {
+    const fts = trigramQuery(v);
+    const rows = fts
+      ? await db.select<R>(
+          `SELECT f.* FROM food_fts JOIN food f ON f.num = food_fts.rowid
+            WHERE food_fts MATCH ? AND f.is_archived = 0 ${sourceFilter}
+            ORDER BY bm25(food_fts) LIMIT 600`,
+          [fts, ...(opts.sources ?? [])],
+        )
+      : await db.select<R>(
+          `SELECT f.* FROM food f WHERE f.name_norm LIKE ? AND f.is_archived = 0 ${sourceFilter} LIMIT 300`,
+          [`%${v}%`, ...(opts.sources ?? [])],
+        );
+    for (const r of rows) byId.set(r.id, r);
   }
-  const scored = rows
+  const scored = [...byId.values()]
     .map((r) => {
-      const text = textScore(q, `${r.name} ${r.brand ?? ''}`);
+      // Nom (et marque), sinon mots-clés de la source (un peu moins bien classés).
+      const text = Math.max(
+        ...variants.map((v) => Math.max(textScore(v, `${r.name} ${r.brand ?? ''}`), r.aliases ? textScore(v, r.aliases) * 0.9 : 0)),
+      );
       const b = boost(r);
-      return { r, text, score: text + b.boost, badge: b.badge };
+      // Un aliment sans énergie connue est relégué (il reste trouvable).
+      const penalty = r.kcal == null ? 0.2 : 0;
+      return { r, text, score: text + b.boost - penalty, badge: b.badge };
     })
     .filter((x) => x.text >= 0.5)
     .sort((a, b) => b.score - a.score || a.r.name.length - b.r.name.length)

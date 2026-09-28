@@ -1,5 +1,6 @@
 import {
   ciqualStatus,
+  cnfStatus,
   getBodyMetrics,
   getDayLog,
   getGoalsAt,
@@ -135,9 +136,12 @@ export function usePersonalFoods() {
   });
 }
 
-export function useCiqualStatus() {
+export function useFoodDataStatus() {
   const { platform } = useApp();
-  return useQuery({ queryKey: ['ciqualStatus'], queryFn: () => ciqualStatus(platform.db) });
+  return useQuery({
+    queryKey: ['foodDataStatus'],
+    queryFn: async () => ({ ciqual: await ciqualStatus(platform.db), cnf: await cnfStatus(platform.db) }),
+  });
 }
 
 export function useGoalsAt(date: string) {

@@ -5,7 +5,6 @@ name: Installeur Windows
 on:
   push:
     branches: [main, 'claude/**']
-    paths-ignore: ['scripts/probe-sources.mjs', '.github/workflows/sonde-sources.yml']
   workflow_dispatch:
 
 concurrency:
@@ -44,8 +43,8 @@ jobs:
       - name: Vérification des types
         run: pnpm typecheck
 
-      - name: Base Ciqual (ANSES) embarquée
-        run: node scripts/prepare-ciqual.mjs
+      - name: Tables nutritionnelles embarquées (Ciqual, FCÉN)
+        run: node scripts/prepare-food-data.mjs
 
       - name: Serveur MCP (exécutable autonome)
         run: pnpm --filter @training/mcp-server build
@@ -71,7 +70,8 @@ jobs:
         run: |
           set -e
           FILE=$(ls apps/desktop/src-tauri/target/release/bundle/nsis/*.exe | head -1)
-          CIQUAL=$( [ -f apps/desktop/src-tauri/resources/ciqual.json.gz ] && echo "incluse" || echo "non incluse (téléchargement proposé au premier lancement)" )
+          CIQUAL=$( [ -f apps/desktop/src-tauri/resources/ciqual.json.gz ] && echo "incluse" || echo "non incluse (téléchargement proposé dans l'application)" )
+          CNF=$( [ -f apps/desktop/src-tauri/resources/cnf.json.gz ] && echo "inclus" || echo "non inclus (téléchargement proposé dans l'application)" )
           gh release delete derniere-version --cleanup-tag --yes || true
           sleep 5
           gh release create derniere-version "$FILE" \
@@ -79,5 +79,6 @@ jobs:
             --title "TrAIning — dernière version" \
             --notes "Installeur Windows compilé automatiquement depuis ${GITHUB_REF_NAME} (${GITHUB_SHA::7}), le $(date -u '+%d/%m/%Y à %H:%M UTC').
 
-          - Base Ciqual : ${CIQUAL}
+          - Table Ciqual (ANSES) : ${CIQUAL}
+          - Fichier canadien sur les éléments nutritifs : ${CNF}
           - Guide d'installation : docs/installation.md"

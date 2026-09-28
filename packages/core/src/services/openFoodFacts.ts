@@ -1,5 +1,6 @@
 import type { Db } from '../db/driver.ts';
 import { upsertExternalFoods } from '../repos/foods.ts';
+import { ENERGY_COMPUTED_FLAG, energyFromMacros } from './foodPack.ts';
 
 /** Open Food Facts (ODbL) : recherche en ligne et cache local des produits consultés. */
 
@@ -24,6 +25,7 @@ export interface OffFood {
   saltG: number | null;
   alcoholG: number | null;
   portions: { label: string; grams: number }[];
+  flags?: Record<string, string>;
 }
 
 const num = (v: unknown): number | null => {
@@ -36,8 +38,13 @@ export function mapOffProduct(p: Record<string, any>): OffFood | null {
   const n = (p.nutriments ?? {}) as Record<string, unknown>;
   const name = (p.product_name_fr || p.product_name || '').trim();
   if (!p.code || !name) return null;
-  const kcal = num(n['energy-kcal_100g']) ?? (num(n.energy_100g) != null ? Math.round(num(n.energy_100g)! / 4.184) : null);
-  if (kcal == null) return null;
+  let kcal = num(n['energy-kcal_100g']) ?? (num(n.energy_100g) != null ? Math.round(num(n.energy_100g)! / 4.184) : null);
+  let flags: Record<string, string> | undefined;
+  if (kcal == null) {
+    kcal = energyFromMacros({ proteinG: num(n.proteins_100g), carbsG: num(n.carbohydrates_100g), fatG: num(n.fat_100g), fiberG: num(n.fiber_100g), alcoholG: num(n.alcohol_100g) });
+    if (kcal == null) return null;
+    flags = { kcal: ENERGY_COMPUTED_FLAG };
+  }
   const quantity = String(p.quantity ?? '');
   const liquid = /\d\s*(ml|cl|l)\b/i.test(quantity) && !/\d\s*(g|kg)\b/i.test(quantity);
   const portions: { label: string; grams: number }[] = [];
@@ -63,6 +70,7 @@ export function mapOffProduct(p: Record<string, any>): OffFood | null {
     saltG: num(n.salt_100g),
     alcoholG: num(n.alcohol_100g),
     portions,
+    ...(flags ? { flags } : {}),
   };
 }
 

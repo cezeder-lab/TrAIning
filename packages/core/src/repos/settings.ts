@@ -7,6 +7,8 @@ export interface AppSettings {
   imageExportDir: string | null;
   backupDir: string | null;
   backupKeepDays: number;
+  /** Version importée de chaque table de référence embarquée (« Ciqual 2020-07-07#r2 »…). */
+  foodDataVersions: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -14,6 +16,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   imageExportDir: null,
   backupDir: null,
   backupKeepDays: 14,
+  foodDataVersions: {},
 };
 
 export async function getSettings(db: Db): Promise<AppSettings> {

@@ -9,6 +9,7 @@ type R = Record<string, any>;
 export const FOOD_COLUMNS: Record<string, string> = {
   name: 'name',
   brand: 'brand',
+  aliases: 'aliases',
   category: 'category',
   basis: 'basis',
   state: 'state',
@@ -187,9 +188,9 @@ export async function updateFood(db: Db, id: string, patch: Partial<FoodInput>):
   const parsed = foodInputSchema.partial().parse(patch) as Record<string, unknown>;
   // .partial() conserve les valeurs par défaut du schéma : on ne garde que les champs fournis.
   const d = Object.fromEntries(Object.entries(parsed).filter(([k]) => k in patch));
-  const editable = food.source === 'custom' ? Object.keys(FOOD_COLUMNS) : ['cookedYield', 'state', 'category'];
+  const editable = food.source === 'custom' ? Object.keys(FOOD_COLUMNS).filter((k) => k !== 'aliases') : ['cookedYield', 'state', 'category'];
   const blocked = Object.keys(d).filter((k) => k in FOOD_COLUMNS && !editable.includes(k) && d[k] !== undefined);
-  if (blocked.length) throw new DomainError('Les valeurs des aliments Ciqual, Open Food Facts et des recettes ne sont pas modifiables ici.');
+  if (blocked.length) throw new DomainError('Les valeurs des aliments Ciqual, FCÉN, Open Food Facts et des recettes ne sont pas modifiables ici.');
   const cols = Object.fromEntries(Object.entries(FOOD_COLUMNS).filter(([k]) => editable.includes(k)));
   if (d.name !== undefined || d.brand !== undefined) {
     cols.nameNorm = 'name_norm';
@@ -229,12 +230,12 @@ export async function touchFood(db: Db, id: string): Promise<void> {
 }
 
 /**
- * Insertion ou mise à jour en masse depuis une source externe (Ciqual, Open Food Facts),
+ * Insertion ou mise à jour en masse depuis une source externe (Ciqual, FCÉN, Open Food Facts),
  * identifiée par (source, source_ref) : les identifiants restent stables.
  */
 export async function upsertExternalFoods(
   db: Db,
-  source: 'ciqual' | 'off',
+  source: 'ciqual' | 'cnf' | 'off',
   foods: (Record<string, unknown> & { sourceRef: string; name: string; flags?: Record<string, string> })[],
   sourceVersion: string,
 ): Promise<{ inserted: number; updated: number }> {

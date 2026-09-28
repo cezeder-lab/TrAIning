@@ -6,9 +6,9 @@
     "dev": "pnpm build:mcp && pnpm --filter @training/desktop tauri dev",
     "dev:web": "pnpm --filter @training/desktop dev:web",
     "build:mcp": "pnpm --filter @training/mcp-server build",
-    "build:ciqual": "node scripts/prepare-ciqual.mjs",
-    "build": "node scripts/prepare-ciqual.mjs && pnpm build:mcp && pnpm --filter @training/desktop tauri build",
+    "build": "node scripts/prepare-food-data.mjs && pnpm build:mcp && pnpm --filter @training/desktop tauri build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "build:food-data": "node scripts/prepare-food-data.mjs"
   }
 }

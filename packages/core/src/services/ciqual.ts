@@ -2,29 +2,14 @@ import { unzipSync } from 'fflate';
 import type { Db } from '../db/driver.ts';
 import { DomainError } from '../db/util.ts';
 import { countFoodsBySource, upsertExternalFoods } from '../repos/foods.ts';
-import type { WeightState } from '../types.ts';
+import { ENERGY_COMPUTED_FLAG, energyFromMacros, packFoods, unpackFoods, type ExternalFood, type FoodPack } from './foodPack.ts';
 
 /**
  * Table Ciqual (ANSES, Licence Ouverte Etalab) : lecture des fichiers XML officiels
  * (alim_*.xml, compo_*.xml, alim_grp_*.xml), fournis en ZIP.
  */
 
-export interface CiqualFood {
-  sourceRef: string;
-  name: string;
-  category: string | null;
-  state: WeightState;
-  kcal: number | null;
-  proteinG: number | null;
-  carbsG: number | null;
-  sugarsG: number | null;
-  fatG: number | null;
-  satFatG: number | null;
-  fiberG: number | null;
-  saltG: number | null;
-  alcoholG: number | null;
-  flags?: Record<string, string>;
-}
+export type CiqualFood = ExternalFood;
 
 /** Codes des constituants Ciqual utilisés. */
 export const CIQUAL_CONSTITUENTS: Record<string, keyof CiqualFood> = {
@@ -39,7 +24,11 @@ export const CIQUAL_CONSTITUENTS: Record<string, keyof CiqualFood> = {
   '60000': 'alcoholG', // Alcool
 };
 const KJ_CODE = '327';
+/** Énergie « N x facteur de Jones, avec fibres » : repli si l'énergie réglementaire manque. */
+const KCAL_JONES_CODE = '333';
+const KJ_JONES_CODE = '332';
 const PROTEIN_625_CODE = '25003';
+
 
 export const CIQUAL_FALLBACK_URLS = [
   'https://ciqual.anses.fr/cms/sites/default/files/inline-files/XML_2020_07_07.zip',
@@ -78,7 +67,7 @@ export function parseTeneur(raw: string | undefined): { value: number | null; fl
   return Number.isFinite(n) ? { value: n } : { value: null };
 }
 
-export function guessState(name: string): WeightState {
+export function guessState(name: string): ExternalFood['state'] {
   const n = name.toLowerCase();
   if (/\b(cru|crue|crus|crues)\b/.test(n)) return 'raw';
   if (/\b(cuit|cuite|cuits|cuites|bouilli|bouillie|frit|frite|rôti|rôtie|grillé|grillée|poêlé|poêlée|à la vapeur|braisé|braisée)\b/.test(n)) return 'cooked';
@@ -115,6 +104,8 @@ export function parseCiqualXml(files: { alim: string; compo: string; groups?: st
     });
   }
   const kj = new Map<string, number>();
+  const kcalJones = new Map<string, number>();
+  const kjJones = new Map<string, number>();
   const protein625 = new Map<string, number>();
   for (const c of records(files.compo, 'COMPO')) {
     const food = foods.get(c.alim_code ?? '');
@@ -122,6 +113,8 @@ export function parseCiqualXml(files: { alim: string; compo: string; groups?: st
     const code = c.const_code ?? '';
     const { value, flag } = parseTeneur(c.teneur);
     if (code === KJ_CODE && value != null) kj.set(food.sourceRef, value);
+    if (code === KCAL_JONES_CODE && value != null) kcalJones.set(food.sourceRef, value);
+    if (code === KJ_JONES_CODE && value != null) kjJones.set(food.sourceRef, value);
     if (code === PROTEIN_625_CODE && value != null) protein625.set(food.sourceRef, value);
     const key = CIQUAL_CONSTITUENTS[code];
     if (!key) continue;
@@ -129,8 +122,17 @@ export function parseCiqualXml(files: { alim: string; compo: string; groups?: st
     if (flag) food.flags = { ...food.flags, [key]: flag };
   }
   for (const f of foods.values()) {
-    if (f.kcal == null && kj.has(f.sourceRef)) f.kcal = Math.round(kj.get(f.sourceRef)! / 4.184);
-    if (f.proteinG == null && protein625.has(f.sourceRef)) f.proteinG = protein625.get(f.sourceRef)!;
+    const ref = f.sourceRef;
+    if (f.proteinG == null && protein625.has(ref)) f.proteinG = protein625.get(ref)!;
+    if (f.kcal != null) continue;
+    // Énergie absente de la table : autre code d'énergie, sinon calcul par les macros.
+    const fallback = kj.has(ref) ? Math.round(kj.get(ref)! / 4.184) : kcalJones.get(ref) ?? (kjJones.has(ref) ? Math.round(kjJones.get(ref)! / 4.184) : null);
+    if (fallback != null) {
+      f.kcal = fallback;
+    } else {
+      f.kcal = energyFromMacros(f);
+      if (f.kcal != null) f.flags = { ...f.flags, kcal: ENERGY_COMPUTED_FLAG };
+    }
   }
   return [...foods.values()];
 }
@@ -150,22 +152,10 @@ export function parseCiqualZip(zip: Uint8Array): { foods: CiqualFood[]; version:
   };
 }
 
-/** Format compact embarqué dans l'installeur (resources/ciqual.json.gz). */
-export interface CiqualPack {
-  version: string;
-  fields: string[];
-  rows: unknown[][];
-}
-
-const PACK_FIELDS = ['sourceRef', 'name', 'category', 'state', 'kcal', 'proteinG', 'carbsG', 'sugarsG', 'fatG', 'satFatG', 'fiberG', 'saltG', 'alcoholG', 'flags'] as const;
-
-export function packCiqual(foods: CiqualFood[], version: string): CiqualPack {
-  return { version, fields: [...PACK_FIELDS], rows: foods.map((f) => PACK_FIELDS.map((k) => f[k] ?? null)) };
-}
-
-export function unpackCiqual(pack: CiqualPack): CiqualFood[] {
-  return pack.rows.map((row) => Object.fromEntries(pack.fields.map((k, i) => [k, row[i] ?? (k === 'flags' ? undefined : null)])) as unknown as CiqualFood);
-}
+/** Rétrocompatibilité : ancien nom du format compact. */
+export type CiqualPack = FoodPack;
+export const packCiqual = (foods: CiqualFood[], version: string) => packFoods(foods, version, 'ciqual');
+export const unpackCiqual = unpackFoods;
 
 export async function importCiqual(db: Db, foods: CiqualFood[], version: string) {
   if (foods.length < 100) throw new DomainError(`Import Ciqual interrompu : seulement ${foods.length} aliments lus.`);

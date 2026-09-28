@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Modal } from './components/Modal.tsx';
 import { ExercisesPage } from './features/exercises/ExercisesPage.tsx';
@@ -9,7 +10,7 @@ import { SessionPage } from './features/journal/SessionPage.tsx';
 import { ProgramPage } from './features/program/ProgramPage.tsx';
 import { SettingsPage } from './features/settings/SettingsPage.tsx';
 import { useApp } from './lib/app.tsx';
-import { ensureCiqual, takeAnnouncement } from './lib/ciqual.ts';
+import { ensureBundledFoodData, takeAnnouncement } from './lib/foodData.ts';
 import { useSettings } from './lib/queries.ts';
 import { navigate, useLocation, type Route } from './lib/router.ts';
 import { applyTheme } from './lib/theme.ts';
@@ -33,17 +34,21 @@ export function App() {
     if (settings) applyTheme(settings.theme);
   }, [settings]);
 
-  // Premier lancement : base Ciqual embarquée dans l'installeur.
+  // Tables alimentaires embarquées dans l'installeur (premier lancement, mises à jour).
   const { platform, toast } = useApp();
+  const qc = useQueryClient();
   useEffect(() => {
-    ensureCiqual(platform).then(
-      (msg) => {
-        const m = takeAnnouncement(msg);
-        if (m) toast(m);
+    ensureBundledFoodData(platform).then(
+      (messages) => {
+        const m = takeAnnouncement(messages);
+        if (m) {
+          toast(m);
+          void qc.invalidateQueries();
+        }
       },
-      (err) => console.warn('Ciqual', err),
+      (err) => console.warn('Tables alimentaires', err),
     );
-  }, [platform, toast]);
+  }, [platform, toast, qc]);
 
   // Ctrl+1…7 : navigation ; « ? » : aide des raccourcis.
   useEffect(() => {

@@ -411,3 +411,27 @@ export async function logSavedMeal(
   });
   return out;
 }
+
+/**
+ * Recalcule les entrées enregistrées à 0 kcal parce que l'aliment n'avait pas d'énergie connue
+ * (trous de Ciqual), une fois l'aliment complété. Retourne le nombre d'entrées corrigées.
+ */
+export async function recomputeEntriesMissingEnergy(db: Db): Promise<number> {
+  const rows = await db.select<R>(
+    `SELECT e.* FROM food_entry e JOIN food f ON f.id = e.food_id
+      WHERE e.kcal = 0 AND (e.protein_g + e.carbs_g + e.fat_g) > 0 AND f.kcal > 0 AND e.is_estimated = 0`,
+  );
+  if (!rows.length) return 0;
+  const foods = await getFoodsByIds(db, [...new Set(rows.map((r) => r.food_id as string))]);
+  await db.transaction(async (tx) => {
+    for (const r of rows) {
+      const food = foods.get(r.food_id)!;
+      const n = nutrientsFor(food, toFoodState(food, r.grams, r.weight_state).grams);
+      await tx.execute(
+        'UPDATE food_entry SET kcal = ?, protein_g = ?, carbs_g = ?, fat_g = ?, fiber_g = ?, sugars_g = ?, sat_fat_g = ?, salt_g = ?, updated_at = ? WHERE id = ?',
+        [n.kcal ?? 0, n.proteinG ?? 0, n.carbsG ?? 0, n.fatG ?? 0, n.fiberG, n.sugarsG, n.satFatG, n.saltG, nowIso(), r.id],
+      );
+    }
+  });
+  return rows.length;
+}

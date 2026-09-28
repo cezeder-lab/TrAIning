@@ -22,8 +22,8 @@ Durée : environ 15 minutes. Aucune connaissance technique nécessaire : pas bes
 ## Étape 3 — Premier lancement
 
 1. Lancez **TrAIning** depuis le menu Démarrer.
-2. Au premier lancement, l'application crée votre base (`%APPDATA%\fr.training.journal\training.db`), y insère votre programme **Push / Pull / Legs / Abdos** et installe la base alimentaire **Ciqual** : une notification « Base Ciqual installée » apparaît en bas à droite.
-   - Si la notification n'apparaît pas : **Nutrition → Aliments & recettes → Base Ciqual → Télécharger la dernière version**.
+2. Au premier lancement, l'application crée votre base (`%APPDATA%\fr.training.journal\training.db`), y insère votre programme **Push / Pull / Legs / Abdos** et installe les tables alimentaires **Ciqual** (France) et **Fichier canadien sur les éléments nutritifs** (noms et portions en français) : une notification « Bases alimentaires mises à jour » apparaît en bas à droite.
+   - Si la notification n'apparaît pas : **Nutrition → Aliments & recettes → Tables de référence → Télécharger la dernière version**.
 3. Allez dans **Paramètres** :
    - **Profil** : remplissez vos objectifs, vos priorités musculaires, vos contraintes physiques (ex. « épaule gauche sensible au développé ») et vos préférences de réponse. Claude les lira.
    - **Données et sauvegardes** : choisissez le **dossier d'export des fiches** (idéalement un dossier OneDrive ou Google Drive synchronisé avec votre téléphone). Une sauvegarde automatique de la base est faite chaque jour.
@@ -85,6 +85,6 @@ Désinstaller l'application (Paramètres Windows → Applications) **ne supprime
 | « Windows a protégé votre ordinateur » | Informations complémentaires → Exécuter quand même (étape 2). |
 | Claude ne voit pas « training » | Vérifier « connecté » dans TrAIning → Claude Desktop, puis **quitter** vraiment Claude Desktop (zone de notification) et le rouvrir. |
 | Claude dit que la base est introuvable ou en mauvaise version | Lancer TrAIning une fois (il met la base à jour), puis relancer Claude Desktop. |
-| Pas d'aliments Ciqual dans la recherche | Nutrition → Aliments & recettes → Base Ciqual → Télécharger la dernière version (ou importer le ZIP « XML » téléchargé sur ciqual.anses.fr). |
+| Pas d'aliments Ciqual / FCÉN dans la recherche | Nutrition → Aliments & recettes → Tables de référence → Télécharger la dernière version (ou importer le ZIP « XML » de ciqual.anses.fr / le ZIP « All Resource Data » du Fichier canadien sur open.canada.ca). |
 | Open Food Facts ne répond pas | Service en ligne parfois lent : réessayer ; les produits déjà consultés restent disponibles hors ligne. |
 | Les modifications faites par Claude n'apparaissent pas | Elles s'affichent en une seconde environ (notification « Données mises à jour depuis Claude Desktop ») ; sinon changer de page et revenir. |

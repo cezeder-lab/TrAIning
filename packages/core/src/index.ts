@@ -30,3 +30,7 @@ export * from './services/ciqual.ts';
 export * from './services/openFoodFacts.ts';
 export * from './repos/audit.ts';
 export * from './services/mcpPrompts.ts';
+export * from './services/foodSynonyms.ts';
+export * from './services/defaultPortions.ts';
+export * from './services/foodPack.ts';
+export * from './services/cnf.ts';

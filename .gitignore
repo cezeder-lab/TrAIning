@@ -7,5 +7,5 @@ target/
 *.db-shm
 apps/desktop/src-tauri/gen/
 apps/desktop/src-tauri/binaries/
-apps/desktop/src-tauri/resources/ciqual.json.gz
+apps/desktop/src-tauri/resources/*.json.gz
 apps/mcp-server/dist/

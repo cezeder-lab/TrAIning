@@ -51,6 +51,9 @@ Proposition validée le 27/09/2026 (voir [§5](#5-décisions-validées)). Ce doc
 
 ### Sources de données externes
 
+- **Fichier canadien sur les éléments nutritifs (FCÉN 2026, Santé Canada)** — Licence du gouvernement ouvert – Canada (attribution affichée dans l'application). ~6 000 aliments, noms, mots-clés et portions en français ; glucides convertis en glucides disponibles (total − fibres). Embarqué comme Ciqual (`scripts/prepare-food-data.mjs`), migration `0003` (source `cnf`, colonne `aliases` indexée).
+- **Énergie manquante** — 887 aliments Ciqual (28 %) n'ont aucune valeur d'énergie : elle est calculée à partir des macronutriments (coefficients UE 1169/2011 : 4/4/9, fibres 2, alcool 7) et signalée « calculé » (`value_flags.kcal`). Même règle pour Open Food Facts.
+
 - **Ciqual (ANSES)** — Licence Ouverte Etalab. Un instantané pré-converti (`ciqual.json.gz`) est embarqué dans l'installeur et importé au premier lancement ; un bouton « Mettre à jour Ciqual » retélécharge les fichiers XML officiels et les passe dans le **même parseur** (dans `core`). Import en upsert sur le code Ciqual → les identifiants restent stables et le journal n'est pas cassé.
 - **Open Food Facts** — API publique (recherche par nom, lecture par code-barres) avec `User-Agent` identifié ; chaque produit consulté est mis en cache dans `food` (`source='off'`). Données ODbL : mention de la source dans l'UI.
 - **free-exercise-db** (`yuhonas`, Unlicense) — import optionnel à la demande (JSON + images), phase 2.
@@ -73,7 +76,7 @@ TrAIning/
 │     ├─ claude_desktop_config.example.json
 │     └─ prompts-types.md        # prompts à coller dans Claude Desktop (phase 5)
 ├─ scripts/
-│  ├─ prepare-ciqual.mjs         # XML Ciqual → apps/desktop/src-tauri/resources/ciqual.json.gz
+│  ├─ prepare-food-data.mjs      # Ciqual (XML) + FCÉN (CSV) → apps/desktop/src-tauri/resources/*.json.gz
 │  └─ fetch-free-exercise-db.mjs # (optionnel) récupération du dataset libre
 ├─ packages/
 │  └─ core/                      # @training/core — couche d'accès aux données partagée

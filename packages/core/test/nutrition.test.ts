@@ -44,6 +44,8 @@ const ALIMS: [string, string, string][] = [
   ['36018', 'Poulet, filet, sans peau, cru', '0401'],
   ['19590', 'Yaourt nature', '0501'],
   ['22000', 'Oeuf, cru', '0402'],
+  ['19653', 'Fromage blanc ou spécialité laitière, aromatisé, sucré, 3% MG environ', '0501'],
+  ['19700', 'Yaourt à la grecque, nature', '0501'],
 ];
 const COMPO: [string, string, string][] = [
   ['4003', '328', '357'], ['4003', '25000', '12,5'], ['4003', '31000', '70,9'], ['4003', '40000', '1,5'], ['4003', '32000', 'traces'],
@@ -51,6 +53,10 @@ const COMPO: [string, string, string][] = [
   ['36018', '327', '490'], ['36018', '25000', '23'], ['36018', '31000', '-'], ['36018', '40000', '1,6'],
   ['19590', '328', '53'], ['19590', '25000', '4'], ['19590', '31000', '5'], ['19590', '40000', '< 0,5'],
   ['22000', '328', '140'], ['22000', '25000', '12,7'], ['22000', '31000', '0,3'], ['22000', '40000', '9,8'],
+  // Énergie absente partout (cas réel de Ciqual pour certains laitages) : calculée par les macros.
+  ['19653', '328', '-'], ['19653', '327', '-'], ['19653', '25000', '5,58'], ['19653', '31000', '14'], ['19653', '40000', '3,2'], ['19653', '34100', '0,28'],
+  // Énergie seulement en « facteur de Jones » : reprise telle quelle.
+  ['19700', '328', '-'], ['19700', '333', '97'], ['19700', '25000', '9'], ['19700', '31000', '4'], ['19700', '40000', '5'],
 ];
 
 function ciqualZip(extraFoods = 0) {
@@ -91,6 +97,10 @@ describe('Ciqual', () => {
     expect(poulet.carbsG).toBeNull();
     expect(foods.find((f) => f.sourceRef === '19590')!.flags).toEqual({ fatG: '< 0,5' });
     expect(parseTeneur(' 1 234,5 ')).toEqual({ value: 1234.5 });
+    const fb = foods.find((f) => f.sourceRef === '19653')!;
+    expect(fb.kcal).toBe(Math.round(5.58 * 4 + 14 * 4 + 3.2 * 9 + 0.28 * 2));
+    expect(fb.flags).toEqual({ kcal: 'calculée à partir des macronutriments' });
+    expect(foods.find((f) => f.sourceRef === '19700')!.kcal).toBe(97);
   });
 
   it('importe sans doublon et le format compact fait l’aller-retour', async () => {
@@ -98,8 +108,8 @@ describe('Ciqual', () => {
     const { foods, version } = parseCiqualZip(ciqualZip(100));
     expect(unpackCiqual(JSON.parse(JSON.stringify(packCiqual(foods, version))))).toEqual(foods);
     const r = await importCiqual(db, foods, version);
-    expect(r).toEqual({ inserted: 0, updated: 105 });
-    expect(await ciqualStatus(db)).toEqual({ count: 105, version: 'Ciqual 2020-07-07' });
+    expect(r).toEqual({ inserted: 0, updated: 107 });
+    expect(await ciqualStatus(db)).toEqual({ count: 107, version: 'Ciqual 2020-07-07' });
   });
 });
 
@@ -112,10 +122,13 @@ describe('recherche d’aliments', () => {
     expect((await searchFoods(db, 'oeuf'))[0]!.food.name).toBe('Oeuf, cru');
 
     await createCustomFood(db, { name: 'Yaourt grec maison', kcal: 120, proteinG: 9, carbsG: 4, fatG: 7 });
+    expect((await searchFoods(db, 'yaourt grec'))[0]!.food.name).toBe('Yaourt grec maison');
+    expect((await searchFoods(db, 'yogourt grec', { sources: ['ciqual'] }))[0]!.food.name).toBe('Yaourt à la grecque, nature');
     let res = await searchFoods(db, 'yaourt');
     expect(res.map((r) => [r.food.name, r.badge])).toEqual([
       ['Yaourt grec maison', 'custom'],
       ['Yaourt nature', 'ciqual'],
+      ['Yaourt à la grecque, nature', 'ciqual'],
     ]);
     await setFoodFavorite(db, res[1]!.food.id, true);
     res = await searchFoods(db, 'yaourt');

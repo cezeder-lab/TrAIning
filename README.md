@@ -40,12 +40,13 @@ pnpm dev:web      # interface seule dans un navigateur (http://localhost:5173), 
 pnpm test         # tests (couche de données, serveur MCP)
 pnpm typecheck
 pnpm build:mcp    # serveur MCP autonome (apps/mcp-server/dist/training-mcp.exe + sidecar Tauri)
-pnpm build        # Ciqual + serveur MCP + installeur NSIS (apps/desktop/src-tauri/target/release/bundle/nsis/)
+pnpm build:food-data  # tables Ciqual + FCÉN embarquées (apps/desktop/src-tauri/resources/)
+pnpm build        # tables alimentaires + serveur MCP + installeur NSIS (apps/desktop/src-tauri/target/release/bundle/nsis/)
 ```
 
 Tests Rust : `cargo test` dans `apps/desktop/src-tauri` (après `pnpm build:mcp`).
 
-Structure : `packages/core` (données, logique métier, partagé), `apps/desktop` (Tauri + React), `apps/mcp-server` (serveur MCP), `scripts/` (préparation de Ciqual).
+Structure : `packages/core` (données, logique métier, partagé), `apps/desktop` (Tauri + React), `apps/mcp-server` (serveur MCP), `scripts/` (préparation des tables alimentaires).
 
 ## Où sont les données ?
 

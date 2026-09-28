@@ -236,7 +236,7 @@ export interface ExerciseMedia {
 
 // --- Nutrition ---------------------------------------------------------------
 
-export const FOOD_SOURCES = ['ciqual', 'off', 'custom', 'recipe'] as const;
+export const FOOD_SOURCES = ['ciqual', 'cnf', 'off', 'custom', 'recipe'] as const;
 export type FoodSource = (typeof FOOD_SOURCES)[number];
 export type WeightState = 'raw' | 'cooked' | 'na';
 export type EntryUnit = 'g' | 'ml' | 'portion';

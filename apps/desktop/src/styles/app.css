@@ -2159,3 +2159,19 @@ textarea::placeholder {
 .audit-args {
   word-break: break-word;
 }
+
+.ref-bases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ref-bases li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}

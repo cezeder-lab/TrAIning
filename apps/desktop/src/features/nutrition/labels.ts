@@ -6,11 +6,13 @@ export const BADGE_LABELS: Record<SearchBadge, string> = {
   custom: 'Perso',
   recipe: 'Recette',
   ciqual: 'Ciqual',
+  cnf: 'FCÉN',
   off: 'Open Food Facts',
 };
 
 export const SOURCE_LABELS: Record<string, string> = {
   ciqual: 'Ciqual',
+  cnf: 'FCÉN (Canada)',
   off: 'Open Food Facts',
   custom: 'Perso',
   recipe: 'Recette',
