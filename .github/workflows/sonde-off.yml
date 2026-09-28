@@ -1,0 +1,34 @@
+# Sonde temporaire : format et disponibilité des API Open Food Facts.
+name: Sonde OFF
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/sonde-off.yml']
+jobs:
+  sonde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          cat > sonde.mjs <<'JS'
+          const UA = { 'User-Agent': 'TrAIning/0.1 (application personnelle ; journal nutrition)', Accept: 'application/json' };
+          const F = 'code,product_name,product_name_fr,brands,nutriments,serving_quantity,serving_size,quantity';
+          const urls = [
+            `https://search.openfoodfacts.org/search?q=skyr&langs=fr&page_size=2&fields=${F}`,
+            `https://search.openfoodfacts.org/search?q=yaourt%20grec%20nature&langs=fr&page_size=5&fields=code,product_name,product_name_fr,brands`,
+            `https://search.openfoodfacts.org/search?q=yaourt%20grec%20nature&langs=fr&page_size=3`,
+            `https://world.openfoodfacts.org/cgi/search.pl?search_terms=skyr&search_simple=1&action=process&json=1&page_size=2&fields=${F}`,
+            `https://world.openfoodfacts.org/api/v2/search?search_terms=skyr&page_size=2&fields=${F}`,
+            `https://world.openfoodfacts.org/api/v2/product/3017620422003.json?fields=${F}`,
+          ];
+          for (const u of urls) {
+            const t = Date.now();
+            try {
+              const r = await fetch(u, { headers: UA, signal: AbortSignal.timeout(20000) });
+              const txt = await r.text();
+              console.log(`\n=== ${r.status} ${Date.now() - t}ms ${u}\n${txt.slice(0, 3500)}`);
+            } catch (e) { console.log(`\n=== ERREUR ${u} ${e}`); }
+          }
+          JS
+          node sonde.mjs
