@@ -5,6 +5,7 @@ name: Installeur Windows
 on:
   push:
     branches: [main, 'claude/**']
+    paths-ignore: ['scripts/probe-sources.mjs', '.github/workflows/sonde-sources.yml']
   workflow_dispatch:
 
 concurrency:
